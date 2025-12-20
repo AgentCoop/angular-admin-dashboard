@@ -12,6 +12,8 @@ import { HeaderComponent } from './core/layouts/header/header.component';
 import { SidebarComponent } from './core/layouts/sidebar/sidebar.component';
 import { FooterComponent } from './core/layouts/footer/footer.component';
 
+import { PanelComponent } from './core/ui/data-display/panel/panel.component';
+
 @Component({
   selector: 'app-root',
   standalone: true,
@@ -20,7 +22,8 @@ import { FooterComponent } from './core/layouts/footer/footer.component';
     RouterModule,
     HeaderComponent,
     SidebarComponent,
-    FooterComponent
+    FooterComponent,
+    PanelComponent,
   ],
   templateUrl: './app.html'
 })
