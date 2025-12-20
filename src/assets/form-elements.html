@@ -1,0 +1,1816 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Military UI Components</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: 'Arial', 'Helvetica', sans-serif;
+    }
+
+    :root {
+      /* Military-inspired light color palette */
+      --camo-sand: #d4c9a8;
+      --camo-tan: #c2b280;
+      --camo-olive: #8b8b6c;
+      --camo-gray: #a0a0a0;
+      --camo-dark: #6c6c5c;
+      --steel-blue: #5a7d9a;
+      --field-green: #7d8c6c;
+      --desert-tan: #e0d6b8;
+      --military-white: #f5f5f0;
+      --military-black: #3a3a35;
+      --alert-red: #b85252;
+      --alert-orange: #d18c5a;
+      --success-green: #5a8c6c;
+
+      /* Utility */
+      --border-radius-sm: 3px;
+      --border-radius-md: 5px;
+      --border-radius-lg: 8px;
+      --shadow-sm: 0 2px 4px rgba(58, 58, 53, 0.1);
+      --shadow-md: 0 4px 8px rgba(58, 58, 53, 0.15);
+      --shadow-lg: 0 8px 16px rgba(58, 58, 53, 0.2);
+      --transition: all 0.2s ease;
+    }
+
+    body {
+      background-color: var(--military-white);
+      color: var(--military-black);
+      line-height: 1.5;
+      min-height: 100vh;
+      padding: 20px;
+      background-image:
+        linear-gradient(rgba(212, 201, 168, 0.1) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(212, 201, 168, 0.1) 1px, transparent 1px);
+      background-size: 20px 20px;
+    }
+
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 30px;
+    }
+
+    @media (max-width: 1024px) {
+      .container {
+        grid-template-columns: 1fr;
+        gap: 25px;
+      }
+    }
+
+    /* MILITARY PANEL STYLES */
+    .military-panel {
+      background-color: white;
+      border-radius: var(--border-radius-md);
+      padding: 25px;
+      border: 1px solid var(--camo-tan);
+      box-shadow: var(--shadow-sm);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .military-panel::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 4px;
+      background: linear-gradient(90deg, var(--camo-tan), var(--steel-blue), var(--field-green));
+      border-radius: var(--border-radius-sm) var(--border-radius-sm) 0 0;
+    }
+
+    .panel-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 25px;
+      padding-bottom: 15px;
+      border-bottom: 1px solid var(--camo-sand);
+      position: relative;
+    }
+
+    .panel-header::after {
+      content: '';
+      position: absolute;
+      bottom: -1px;
+      left: 0;
+      width: 100px;
+      height: 2px;
+      background-color: var(--steel-blue);
+    }
+
+    .panel-title {
+      font-size: 1.4rem;
+      font-weight: 700;
+      color: var(--military-black);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .panel-title i {
+      color: var(--steel-blue);
+    }
+
+    .panel-subtitle {
+      font-size: 0.9rem;
+      color: var(--camo-dark);
+      margin-top: 5px;
+      font-weight: 500;
+    }
+
+    .panel-badge {
+      background-color: var(--steel-blue);
+      color: white;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    /* FORM GROUP */
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    .form-label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: 600;
+      color: var(--military-black);
+      font-size: 0.95rem;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+
+    .form-label .required {
+      color: var(--alert-red);
+      margin-left: 2px;
+    }
+
+    .form-hint {
+      font-size: 0.85rem;
+      color: var(--camo-dark);
+      margin-top: 6px;
+      font-style: italic;
+    }
+
+    /* MILITARY INPUT FIELD */
+    .military-input {
+      width: 100%;
+      padding: 12px 16px;
+      border: 2px solid var(--camo-gray);
+      border-radius: var(--border-radius-sm);
+      background-color: var(--military-white);
+      color: var(--military-black);
+      font-size: 1rem;
+      font-weight: 500;
+      transition: var(--transition);
+      position: relative;
+    }
+
+    .military-input:focus {
+      outline: none;
+      border-color: var(--steel-blue);
+      box-shadow: 0 0 0 3px rgba(90, 125, 154, 0.2);
+      background-color: white;
+    }
+
+    .military-input::placeholder {
+      color: var(--camo-gray);
+      font-weight: normal;
+    }
+
+    .military-input:disabled {
+      background-color: var(--desert-tan);
+      border-color: var(--camo-tan);
+      color: var(--camo-dark);
+      cursor: not-allowed;
+      opacity: 0.7;
+    }
+
+    .military-input.error {
+      border-color: var(--alert-red);
+      background-color: rgba(184, 82, 82, 0.05);
+    }
+
+    .military-input.success {
+      border-color: var(--success-green);
+      background-color: rgba(90, 140, 108, 0.05);
+    }
+
+    .military-input.with-icon {
+      padding-left: 45px;
+    }
+
+    .input-wrapper {
+      position: relative;
+    }
+
+    .input-icon {
+      position: absolute;
+      left: 16px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--camo-olive);
+      font-size: 1.1rem;
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    .input-actions {
+      position: absolute;
+      right: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      display: flex;
+      gap: 8px;
+    }
+
+    .input-action-btn {
+      background-color: var(--camo-sand);
+      border: 1px solid var(--camo-tan);
+      border-radius: var(--border-radius-sm);
+      color: var(--military-black);
+      cursor: pointer;
+      font-size: 0.9rem;
+      padding: 6px 10px;
+      transition: var(--transition);
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .input-action-btn:hover {
+      background-color: var(--camo-tan);
+      border-color: var(--camo-olive);
+    }
+
+    /* PASSWORD STRENGTH METER */
+    .strength-meter {
+      height: 6px;
+      background-color: var(--camo-sand);
+      border-radius: 3px;
+      margin: 10px 0;
+      overflow: hidden;
+      position: relative;
+      border: 1px solid var(--camo-tan);
+    }
+
+    .strength-fill {
+      height: 100%;
+      width: 0%;
+      transition: width 0.3s ease;
+      border-radius: 3px;
+    }
+
+    .strength-text {
+      font-size: 0.85rem;
+      color: var(--camo-dark);
+      font-weight: 500;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    /* MILITARY TEXTAREA */
+    .military-textarea {
+      width: 100%;
+      padding: 12px 16px;
+      border: 2px solid var(--camo-gray);
+      border-radius: var(--border-radius-sm);
+      background-color: var(--military-white);
+      color: var(--military-black);
+      font-size: 1rem;
+      resize: vertical;
+      min-height: 120px;
+      font-family: inherit;
+      font-weight: 500;
+      transition: var(--transition);
+    }
+
+    .military-textarea:focus {
+      outline: none;
+      border-color: var(--steel-blue);
+      box-shadow: 0 0 0 3px rgba(90, 125, 154, 0.2);
+      background-color: white;
+    }
+
+    .textarea-counter {
+      text-align: right;
+      font-size: 0.85rem;
+      color: var(--camo-dark);
+      margin-top: 8px;
+      font-weight: 500;
+    }
+
+    /* MILITARY SELECT */
+    .military-select {
+      width: 100%;
+      padding: 12px 16px;
+      border: 2px solid var(--camo-gray);
+      border-radius: var(--border-radius-sm);
+      background-color: var(--military-white);
+      color: var(--military-black);
+      font-size: 1rem;
+      font-weight: 500;
+      appearance: none;
+      background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236c6c5c' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+      background-repeat: no-repeat;
+      background-position: right 16px center;
+      background-size: 16px;
+      padding-right: 45px;
+      transition: var(--transition);
+      cursor: pointer;
+    }
+
+    .military-select:focus {
+      outline: none;
+      border-color: var(--steel-blue);
+      box-shadow: 0 0 0 3px rgba(90, 125, 154, 0.2);
+      background-color: white;
+    }
+
+    /* MILITARY CHECKBOX */
+    .checkbox-container {
+      display: flex;
+      align-items: flex-start;
+      margin-bottom: 15px;
+      cursor: pointer;
+      user-select: none;
+      position: relative;
+    }
+
+    .checkbox-input {
+      display: none;
+    }
+
+    .checkbox-custom {
+      width: 22px;
+      height: 22px;
+      border: 2px solid var(--camo-gray);
+      border-radius: var(--border-radius-sm);
+      margin-right: 12px;
+      position: relative;
+      flex-shrink: 0;
+      transition: var(--transition);
+      background-color: var(--military-white);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .checkbox-container:hover .checkbox-custom {
+      border-color: var(--camo-olive);
+      background-color: var(--desert-tan);
+    }
+
+    .checkbox-input:checked + .checkbox-custom {
+      background-color: var(--steel-blue);
+      border-color: var(--steel-blue);
+    }
+
+    .checkbox-input:checked + .checkbox-custom::after {
+      content: '';
+      position: absolute;
+      width: 12px;
+      height: 6px;
+      border-left: 2px solid white;
+      border-bottom: 2px solid white;
+      transform: rotate(-45deg) translate(1px, -1px);
+    }
+
+    .checkbox-input:disabled + .checkbox-custom {
+      background-color: var(--desert-tan);
+      border-color: var(--camo-tan);
+      cursor: not-allowed;
+      opacity: 0.6;
+    }
+
+    .checkbox-label {
+      padding-top: 2px;
+      color: var(--military-black);
+      font-weight: 500;
+      flex: 1;
+    }
+
+    .checkbox-description {
+      font-size: 0.85rem;
+      color: var(--camo-dark);
+      margin-top: 4px;
+      margin-left: 34px;
+    }
+
+    /* MILITARY RADIO BUTTONS */
+    .radio-group {
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+      margin-top: 10px;
+    }
+
+    .radio-container {
+      display: flex;
+      align-items: flex-start;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .radio-input {
+      display: none;
+    }
+
+    .radio-custom {
+      width: 22px;
+      height: 22px;
+      border: 2px solid var(--camo-gray);
+      border-radius: 50%;
+      margin-right: 12px;
+      position: relative;
+      flex-shrink: 0;
+      transition: var(--transition);
+      background-color: var(--military-white);
+    }
+
+    .radio-container:hover .radio-custom {
+      border-color: var(--camo-olive);
+      background-color: var(--desert-tan);
+    }
+
+    .radio-input:checked + .radio-custom {
+      border-color: var(--steel-blue);
+    }
+
+    .radio-input:checked + .radio-custom::after {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background-color: var(--steel-blue);
+    }
+
+    .radio-input:disabled + .radio-custom {
+      background-color: var(--desert-tan);
+      border-color: var(--camo-tan);
+      cursor: not-allowed;
+      opacity: 0.6;
+    }
+
+    .radio-label {
+      padding-top: 2px;
+      color: var(--military-black);
+      font-weight: 500;
+    }
+
+    /* MILITARY SWITCH (TOGGLE) */
+    .switch-container {
+      display: flex;
+      align-items: center;
+      margin-bottom: 18px;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .switch-input {
+      display: none;
+    }
+
+    .switch-custom {
+      width: 55px;
+      height: 28px;
+      background-color: var(--camo-gray);
+      border-radius: 14px;
+      position: relative;
+      margin-right: 15px;
+      flex-shrink: 0;
+      transition: var(--transition);
+      border: 2px solid var(--camo-tan);
+    }
+
+    .switch-custom::after {
+      content: '';
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background-color: white;
+      transition: var(--transition);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .switch-input:checked + .switch-custom {
+      background-color: var(--steel-blue);
+      border-color: var(--steel-blue);
+    }
+
+    .switch-input:checked + .switch-custom::after {
+      transform: translateX(27px);
+    }
+
+    .switch-input:disabled + .switch-custom {
+      background-color: var(--desert-tan);
+      border-color: var(--camo-tan);
+      cursor: not-allowed;
+      opacity: 0.6;
+    }
+
+    .switch-input:disabled + .switch-custom::after {
+      background-color: var(--camo-sand);
+    }
+
+    .switch-label {
+      padding-top: 2px;
+      color: var(--military-black);
+      font-weight: 500;
+      flex: 1;
+    }
+
+    /* MILITARY SLIDER (RANGE INPUT) */
+    .slider-container {
+      padding: 10px 0;
+    }
+
+    .military-slider {
+      width: 100%;
+      height: 8px;
+      -webkit-appearance: none;
+      appearance: none;
+      background: var(--camo-sand);
+      border-radius: 4px;
+      outline: none;
+      border: 1px solid var(--camo-tan);
+    }
+
+    .military-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: var(--steel-blue);
+      cursor: pointer;
+      box-shadow: var(--shadow-md);
+      border: 2px solid white;
+      transition: var(--transition);
+    }
+
+    .military-slider::-webkit-slider-thumb:hover {
+      background: var(--field-green);
+      transform: scale(1.1);
+    }
+
+    .military-slider::-moz-range-thumb {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: var(--steel-blue);
+      cursor: pointer;
+      box-shadow: var(--shadow-md);
+      border: 2px solid white;
+    }
+
+    .slider-labels {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 10px;
+      font-size: 0.85rem;
+      color: var(--camo-dark);
+      font-weight: 500;
+    }
+
+    .slider-value {
+      background-color: var(--steel-blue);
+      color: white;
+      padding: 4px 10px;
+      border-radius: var(--border-radius-sm);
+      font-weight: 600;
+      font-size: 0.9rem;
+    }
+
+    /* MILITARY FILE UPLOAD */
+    .file-upload {
+      border: 2px dashed var(--camo-gray);
+      border-radius: var(--border-radius-sm);
+      padding: 30px;
+      text-align: center;
+      background-color: var(--military-white);
+      transition: var(--transition);
+      cursor: pointer;
+      position: relative;
+    }
+
+    .file-upload:hover {
+      border-color: var(--camo-olive);
+      background-color: var(--desert-tan);
+    }
+
+    .file-upload.drag-over {
+      border-color: var(--steel-blue);
+      background-color: rgba(90, 125, 154, 0.05);
+    }
+
+    .file-upload-icon {
+      font-size: 2.5rem;
+      color: var(--camo-olive);
+      margin-bottom: 15px;
+    }
+
+    .file-upload-text {
+      color: var(--military-black);
+      margin-bottom: 10px;
+      font-weight: 600;
+    }
+
+    .file-upload-hint {
+      font-size: 0.85rem;
+      color: var(--camo-dark);
+      font-style: italic;
+    }
+
+    .file-upload-input {
+      display: none;
+    }
+
+    .file-list {
+      margin-top: 15px;
+    }
+
+    .file-item {
+      display: flex;
+      align-items: center;
+      padding: 12px;
+      background-color: var(--desert-tan);
+      border-radius: var(--border-radius-sm);
+      margin-bottom: 8px;
+      border: 1px solid var(--camo-tan);
+    }
+
+    .file-icon {
+      color: var(--camo-olive);
+      margin-right: 12px;
+      font-size: 1.2rem;
+    }
+
+    .file-info {
+      flex-grow: 1;
+    }
+
+    .file-name {
+      font-weight: 600;
+      color: var(--military-black);
+    }
+
+    .file-size {
+      font-size: 0.85rem;
+      color: var(--camo-dark);
+      font-weight: 500;
+    }
+
+    .file-remove {
+      background-color: var(--camo-sand);
+      border: 1px solid var(--camo-tan);
+      border-radius: var(--border-radius-sm);
+      color: var(--military-black);
+      cursor: pointer;
+      font-size: 1rem;
+      padding: 6px 10px;
+      transition: var(--transition);
+    }
+
+    .file-remove:hover {
+      background-color: var(--alert-red);
+      border-color: var(--alert-red);
+      color: white;
+    }
+
+    /* MILITARY BUTTONS */
+    .military-button {
+      padding: 12px 24px;
+      border: 2px solid;
+      border-radius: var(--border-radius-sm);
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: var(--transition);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .military-button-primary {
+      background-color: var(--steel-blue);
+      border-color: var(--steel-blue);
+      color: white;
+    }
+
+    .military-button-primary:hover {
+      background-color: #4a6d8a;
+      border-color: #4a6d8a;
+      box-shadow: var(--shadow-md);
+      transform: translateY(-2px);
+    }
+
+    .military-button-secondary {
+      background-color: white;
+      border-color: var(--camo-gray);
+      color: var(--military-black);
+    }
+
+    .military-button-secondary:hover {
+      background-color: var(--desert-tan);
+      border-color: var(--camo-olive);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .military-button-danger {
+      background-color: var(--alert-red);
+      border-color: var(--alert-red);
+      color: white;
+    }
+
+    .military-button-danger:hover {
+      background-color: #a84242;
+      border-color: #a84242;
+      box-shadow: var(--shadow-md);
+    }
+
+    .military-button-success {
+      background-color: var(--success-green);
+      border-color: var(--success-green);
+      color: white;
+    }
+
+    .military-button-success:hover {
+      background-color: #4a7c5c;
+      border-color: #4a7c5c;
+      box-shadow: var(--shadow-md);
+    }
+
+    .military-button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none !important;
+      box-shadow: none !important;
+    }
+
+    .button-group {
+      display: flex;
+      gap: 12px;
+      margin-top: 25px;
+    }
+
+    /* MILITARY CARD STYLES */
+    .military-card {
+      background-color: white;
+      border-radius: var(--border-radius-md);
+      padding: 20px;
+      border: 1px solid var(--camo-tan);
+      box-shadow: var(--shadow-sm);
+      margin-bottom: 15px;
+      transition: var(--transition);
+      cursor: pointer;
+      position: relative;
+    }
+
+    .military-card:hover {
+      border-color: var(--steel-blue);
+      box-shadow: var(--shadow-md);
+      transform: translateY(-3px);
+    }
+
+    .military-card.selected {
+      border-color: var(--steel-blue);
+      background-color: rgba(90, 125, 154, 0.05);
+      box-shadow: inset 0 0 0 2px var(--steel-blue);
+    }
+
+    .card-header {
+      display: flex;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+
+    .card-icon {
+      color: var(--steel-blue);
+      margin-right: 12px;
+      font-size: 1.2rem;
+    }
+
+    .card-title {
+      font-weight: 600;
+      color: var(--military-black);
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+      font-size: 1rem;
+    }
+
+    .card-description {
+      font-size: 0.9rem;
+      color: var(--camo-dark);
+    }
+
+    /* VALIDATION MESSAGES */
+    .validation-message {
+      font-size: 0.85rem;
+      margin-top: 8px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 500;
+    }
+
+    .validation-error {
+      color: var(--alert-red);
+    }
+
+    .validation-success {
+      color: var(--success-green);
+    }
+
+    .validation-icon {
+      font-size: 0.9rem;
+    }
+
+    /* STATUS INDICATORS */
+    .status-indicator {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 12px;
+      border-radius: var(--border-radius-sm);
+      font-size: 0.85rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .status-active {
+      background-color: rgba(90, 140, 108, 0.1);
+      color: var(--success-green);
+      border: 1px solid var(--success-green);
+    }
+
+    .status-warning {
+      background-color: rgba(209, 140, 90, 0.1);
+      color: var(--alert-orange);
+      border: 1px solid var(--alert-orange);
+    }
+
+    .status-critical {
+      background-color: rgba(184, 82, 82, 0.1);
+      color: var(--alert-red);
+      border: 1px solid var(--alert-red);
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+    }
+
+    .status-active .status-dot { background-color: var(--success-green); }
+    .status-warning .status-dot { background-color: var(--alert-orange); }
+    .status-critical .status-dot { background-color: var(--alert-red); }
+
+    /* PREVIEW SECTION */
+    .preview-section {
+      background-color: var(--desert-tan);
+      border-radius: var(--border-radius-md);
+      padding: 20px;
+      margin-top: 25px;
+      border: 1px solid var(--camo-tan);
+    }
+
+    .preview-title {
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: var(--military-black);
+      margin-bottom: 15px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .preview-value {
+      font-family: 'Courier New', monospace;
+      background-color: white;
+      padding: 15px;
+      border-radius: var(--border-radius-sm);
+      border: 1px solid var(--camo-tan);
+      font-size: 0.9rem;
+      color: var(--military-black);
+      white-space: pre-wrap;
+      word-break: break-all;
+      max-height: 250px;
+      overflow-y: auto;
+      line-height: 1.6;
+    }
+
+    /* GRID LAYOUTS */
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+
+    .grid-3 {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 15px;
+    }
+
+    @media (max-width: 768px) {
+      .grid-2,
+      .grid-3 {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* UTILITY CLASSES */
+    .mb-10 { margin-bottom: 10px; }
+    .mb-15 { margin-bottom: 15px; }
+    .mb-20 { margin-bottom: 20px; }
+    .mt-10 { margin-top: 10px; }
+    .mt-15 { margin-top: 15px; }
+    .mt-20 { margin-top: 20px; }
+    .flex { display: flex; }
+    .flex-between { display: flex; justify-content: space-between; }
+    .flex-center { display: flex; align-items: center; }
+    .gap-10 { gap: 10px; }
+    .gap-15 { gap: 15px; }
+    .gap-20 { gap: 20px; }
+    .w-100 { width: 100%; }
+    .text-center { text-align: center; }
+    .text-right { text-align: right; }
+    .hidden { display: none; }
+
+    /* RESPONSIVE */
+    @media (max-width: 768px) {
+      body {
+        padding: 15px;
+      }
+
+      .container {
+        gap: 20px;
+      }
+
+      .military-panel {
+        padding: 20px;
+      }
+
+      .panel-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+      }
+
+      .button-group {
+        flex-direction: column;
+      }
+
+      .military-button {
+        width: 100%;
+      }
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+  <!-- LEFT COLUMN: INPUT CONTROLS -->
+  <div>
+    <!-- IDENTIFICATION PANEL -->
+    <div class="military-panel">
+      <div class="panel-header">
+        <div>
+          <h2 class="panel-title"><i class="fas fa-id-card"></i> IDENTIFICATION</h2>
+          <div class="panel-subtitle">Personal and security credentials</div>
+        </div>
+        <div class="status-indicator status-active">
+          <div class="status-dot"></div>
+          <span>ACTIVE</span>
+        </div>
+      </div>
+
+      <!-- Military ID Input -->
+      <div class="form-group">
+        <label class="form-label">Military ID Number <span class="required">*</span></label>
+        <div class="input-wrapper">
+          <i class="fas fa-fingerprint input-icon"></i>
+          <input type="text" class="military-input with-icon" placeholder="US-XXXX-XXXX-XXXX" id="militaryId">
+          <div class="input-actions">
+            <button class="input-action-btn" onclick="generateMilitaryId()">
+              <i class="fas fa-redo"></i> Generate
+            </button>
+          </div>
+        </div>
+        <div class="form-hint">16-digit military identification number</div>
+      </div>
+
+      <!-- Rank and Name -->
+      <div class="grid-2 mb-20">
+        <div class="form-group">
+          <label class="form-label">Rank <span class="required">*</span></label>
+          <select class="military-select" id="militaryRank">
+            <option value="">Select Rank</option>
+            <option value="pvt">Private</option>
+            <option value="cpl">Corporal</option>
+            <option value="sgt">Sergeant</option>
+            <option value="ssg">Staff Sergeant</option>
+            <option value="lt">Lieutenant</option>
+            <option value="cpt">Captain</option>
+            <option value="maj">Major</option>
+            <option value="col">Colonel</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Full Name <span class="required">*</span></label>
+          <input type="text" class="military-input" placeholder="Last, First M.I." id="fullName">
+        </div>
+      </div>
+
+      <!-- Security Clearance -->
+      <div class="form-group">
+        <label class="form-label">Security Clearance Level</label>
+        <div class="grid-3">
+          <div class="military-card" onclick="selectClearance('confidential')">
+            <div class="card-header">
+              <i class="fas fa-shield-alt card-icon"></i>
+              <div class="card-title">CONFIDENTIAL</div>
+            </div>
+            <div class="card-description">Basic military operations</div>
+          </div>
+
+          <div class="military-card selected" onclick="selectClearance('secret')">
+            <div class="card-header">
+              <i class="fas fa-user-shield card-icon"></i>
+              <div class="card-title">SECRET</div>
+            </div>
+            <div class="card-description">Sensitive information</div>
+          </div>
+
+          <div class="military-card" onclick="selectClearance('topsecret')">
+            <div class="card-header">
+              <i class="fas fa-user-secret card-icon"></i>
+              <div class="card-title">TOP SECRET</div>
+            </div>
+            <div class="card-description">Highest clearance level</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SECURITY CONTROLS PANEL -->
+    <div class="military-panel mt-20">
+      <div class="panel-header">
+        <div>
+          <h2 class="panel-title"><i class="fas fa-user-shield"></i> SECURITY CONTROLS</h2>
+          <div class="panel-subtitle">Access and authentication settings</div>
+        </div>
+        <div class="panel-badge">ENCRYPTED</div>
+      </div>
+
+      <!-- Two-Factor Authentication -->
+      <div class="form-group">
+        <label class="form-label">Two-Factor Authentication</label>
+        <div class="switch-container">
+          <input type="checkbox" class="switch-input" id="twoFactorAuth" checked>
+          <label for="twoFactorAuth" class="switch-custom"></label>
+          <label for="twoFactorAuth" class="switch-label">Require 2FA for all logins</label>
+        </div>
+        <div class="form-hint">Adds an extra layer of security to your account</div>
+      </div>
+
+      <!-- Session Timeout -->
+      <div class="form-group">
+        <label class="form-label">Session Timeout</label>
+        <div class="slider-container">
+          <input type="range" class="military-slider" min="5" max="60" value="15" id="sessionTimeout">
+          <div class="slider-labels">
+            <span>5 min</span>
+            <span class="slider-value" id="sessionTimeoutValue">15 min</span>
+            <span>60 min</span>
+          </div>
+        </div>
+        <div class="form-hint">Automatically log out after period of inactivity</div>
+      </div>
+
+      <!-- Login Attempts -->
+      <div class="form-group">
+        <label class="form-label">Max Login Attempts</label>
+        <div class="grid-2">
+          <div>
+            <input type="number" class="military-input" min="1" max="10" value="3" id="maxLoginAttempts">
+          </div>
+          <div>
+            <select class="military-select" id="lockoutDuration">
+              <option value="5">5 minute lockout</option>
+              <option value="15">15 minute lockout</option>
+              <option value="30" selected>30 minute lockout</option>
+              <option value="60">1 hour lockout</option>
+              <option value="1440">24 hour lockout</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-hint">Account lockout after failed attempts</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT COLUMN: TOGGLE CONTROLS -->
+  <div>
+    <!-- ACCESS PERMISSIONS PANEL -->
+    <div class="military-panel">
+      <div class="panel-header">
+        <div>
+          <h2 class="panel-title"><i class="fas fa-lock"></i> ACCESS PERMISSIONS</h2>
+          <div class="panel-subtitle">System and data access controls</div>
+        </div>
+        <div class="status-indicator status-warning">
+          <div class="status-dot"></div>
+          <span>RESTRICTED</span>
+        </div>
+      </div>
+
+      <!-- Permission Checkboxes -->
+      <div class="form-group">
+        <div class="checkbox-container">
+          <input type="checkbox" class="checkbox-input" id="permission1" checked>
+          <label for="permission1" class="checkbox-custom"></label>
+          <label for="permission1" class="checkbox-label">Access Command Center</label>
+        </div>
+        <div class="checkbox-description">Real-time monitoring and command interface</div>
+
+        <div class="checkbox-container">
+          <input type="checkbox" class="checkbox-input" id="permission2" checked>
+          <label for="permission2" class="checkbox-custom"></label>
+          <label for="permission2" class="checkbox-label">View Intelligence Reports</label>
+        </div>
+        <div class="checkbox-description">Classified intelligence and surveillance data</div>
+
+        <div class="checkbox-container">
+          <input type="checkbox" class="checkbox-input" id="permission3">
+          <label for="permission3" class="checkbox-custom"></label>
+          <label for="permission3" class="checkbox-label">Weapons System Control</label>
+        </div>
+        <div class="checkbox-description">Authorized personnel only - requires special clearance</div>
+
+        <div class="checkbox-container">
+          <input type="checkbox" class="checkbox-input" id="permission4" disabled>
+          <label for="permission4" class="checkbox-custom"></label>
+          <label for="permission4" class="checkbox-label">Nuclear Command Authority</label>
+        </div>
+        <div class="checkbox-description">Presidential authorization required</div>
+      </div>
+
+      <!-- Radio Group for Access Type -->
+      <div class="form-group mt-20">
+        <label class="form-label">Access Type Authorization</label>
+        <div class="radio-group">
+          <div class="radio-container">
+            <input type="radio" class="radio-input" name="accessType" id="accessRead" checked>
+            <label for="accessRead" class="radio-custom"></label>
+            <label for="accessRead" class="radio-label">Read Only - View information only</label>
+          </div>
+          <div class="radio-container">
+            <input type="radio" class="radio-input" name="accessType" id="accessWrite">
+            <label for="accessWrite" class="radio-custom"></label>
+            <label for="accessWrite" class="radio-label">Read/Write - Modify existing data</label>
+          </div>
+          <div class="radio-container">
+            <input type="radio" class="radio-input" name="accessType" id="accessAdmin">
+            <label for="accessAdmin" class="radio-custom"></label>
+            <label for="accessAdmin" class="radio-label">Administrative - Full system control</label>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- COMMUNICATIONS PANEL -->
+    <div class="military-panel mt-20">
+      <div class="panel-header">
+        <div>
+          <h2 class="panel-title"><i class="fas fa-satellite-dish"></i> COMMUNICATIONS</h2>
+          <div class="panel-subtitle">Secure communication channels</div>
+        </div>
+        <div class="panel-badge">SECURE</div>
+      </div>
+
+      <!-- Communication Toggles -->
+      <div class="form-group">
+        <div class="switch-container">
+          <input type="checkbox" class="switch-input" id="commsEncrypted" checked>
+          <label for="commsEncrypted" class="switch-custom"></label>
+          <label for="commsEncrypted" class="switch-label">End-to-End Encryption</label>
+        </div>
+        <div class="form-hint">All communications are AES-256 encrypted</div>
+
+        <div class="switch-container">
+          <input type="checkbox" class="switch-input" id="commsSatellite" checked>
+          <label for="commsSatellite" class="switch-custom"></label>
+          <label for="commsSatellite" class="switch-label">Satellite Relay</label>
+        </div>
+        <div class="form-hint">Use secure military satellite network</div>
+
+        <div class="switch-container">
+          <input type="checkbox" class="switch-input" id="commsFrequency">
+          <label for="commsFrequency" class="switch-custom"></label>
+          <label for="commsFrequency" class="switch-label">Frequency Hopping</label>
+        </div>
+        <div class="form-hint">Random frequency switching for secure transmission</div>
+
+        <div class="switch-container">
+          <input type="checkbox" class="switch-input" id="commsEmergency">
+          <label for="commsEmergency" class="switch-custom"></label>
+          <label for="commsEmergency" class="switch-label">Emergency Broadcast</label>
+        </div>
+        <div class="form-hint">Override all channels in emergency situations</div>
+      </div>
+
+      <!-- Frequency Range -->
+      <div class="form-group">
+        <label class="form-label">Secure Frequency Range (MHz)</label>
+        <div class="slider-container">
+          <input type="range" class="military-slider" min="30" max="300" value="150" id="frequencyRange">
+          <div class="slider-labels">
+            <span>30 MHz</span>
+            <span class="slider-value" id="frequencyValue">150 MHz</span>
+            <span>300 MHz</span>
+          </div>
+        </div>
+        <div class="form-hint">Military secure communication band</div>
+      </div>
+    </div>
+
+    <!-- OPERATIONS PANEL -->
+    <div class="military-panel mt-20">
+      <div class="panel-header">
+        <div>
+          <h2 class="panel-title"><i class="fas fa-crosshairs"></i> OPERATIONS</h2>
+          <div class="panel-subtitle">Mission control and deployment settings</div>
+        </div>
+        <div class="status-indicator status-critical">
+          <div class="status-dot"></div>
+          <span>ALERT LEVEL 2</span>
+        </div>
+      </div>
+
+      <!-- Operation Mode -->
+      <div class="form-group">
+        <label class="form-label">Operation Mode <span class="required">*</span></label>
+        <select class="military-select" id="operationMode">
+          <option value="standby">STANDBY - Normal operations</option>
+          <option value="enhanced">ENHANCED - Increased readiness</option>
+          <option value="high">HIGH - Maximum alert</option>
+          <option value="critical">CRITICAL - Active engagement</option>
+        </select>
+      </div>
+
+      <!-- Deployment Settings -->
+      <div class="form-group">
+        <label class="form-label">Deployment Authorization</label>
+        <div class="grid-2">
+          <div>
+            <input type="text" class="military-input" placeholder="Authorization Code" id="authCode">
+          </div>
+          <div>
+            <input type="text" class="military-input" placeholder="Commanding Officer" id="commandingOfficer">
+          </div>
+        </div>
+      </div>
+
+      <!-- Mission Details -->
+      <div class="form-group">
+        <label class="form-label">Mission Briefing</label>
+        <textarea class="military-textarea" placeholder="Enter mission objectives, parameters, and special instructions..." id="missionBriefing" maxlength="1000"></textarea>
+        <div class="textarea-counter">
+          <span id="briefingCount">0</span> / 1000 characters
+        </div>
+      </div>
+
+      <!-- File Upload for Mission Files -->
+      <div class="form-group">
+        <label class="form-label">Mission Files</label>
+        <div class="file-upload" id="fileUploadArea" onclick="document.getElementById('missionFiles').click()">
+          <div class="file-upload-icon">
+            <i class="fas fa-file-archive"></i>
+          </div>
+          <div class="file-upload-text">Upload Mission Files</div>
+          <div class="file-upload-hint">Maps, intelligence reports, schematics (Classified)</div>
+          <input type="file" class="file-upload-input" id="missionFiles" multiple onchange="handleFileSelect(event)">
+        </div>
+        <div class="file-list" id="missionFileList"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- PREVIEW AND ACTIONS -->
+<div class="container mt-20">
+  <div class="military-panel">
+    <div class="panel-header">
+      <div>
+        <h2 class="panel-title"><i class="fas fa-clipboard-check"></i> CONFIGURATION PREVIEW</h2>
+        <div class="panel-subtitle">Review and confirm military configuration</div>
+      </div>
+      <div class="panel-badge">TOP SECRET</div>
+    </div>
+
+    <div class="preview-section">
+      <div class="preview-title">
+        <i class="fas fa-eye"></i> Configuration Summary
+      </div>
+      <div class="preview-value" id="configPreview">
+        // CONFIGURATION DATA WILL APPEAR HERE
+        // Complete form to see preview
+      </div>
+    </div>
+
+    <!-- Action Buttons -->
+    <div class="button-group">
+      <button class="military-button military-button-secondary" onclick="resetConfiguration()">
+        <i class="fas fa-undo"></i> Reset Configuration
+      </button>
+      <button class="military-button military-button-danger" onclick="simulateLockdown()">
+        <i class="fas fa-lock"></i> Emergency Lockdown
+      </button>
+      <button class="military-button military-button-primary" onclick="saveConfiguration()">
+        <i class="fas fa-save"></i> Save Configuration
+      </button>
+      <button class="military-button military-button-success" onclick="deployConfiguration()">
+        <i class="fas fa-rocket"></i> Deploy Configuration
+      </button>
+    </div>
+
+    <!-- Status Footer -->
+    <div class="flex-between mt-20" style="padding-top: 20px; border-top: 1px solid var(--camo-sand);">
+      <div class="flex-center gap-15">
+        <div class="status-indicator status-active">
+          <div class="status-dot"></div>
+          <span>SYSTEM ONLINE</span>
+        </div>
+        <div style="font-size: 0.9rem; color: var(--camo-dark);">
+          <i class="fas fa-clock"></i> Last updated: <span id="lastUpdated">Just now</span>
+        </div>
+      </div>
+      <div style="font-size: 0.85rem; color: var(--camo-dark); font-style: italic;">
+        <i class="fas fa-exclamation-triangle"></i> All data is classified and encrypted
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Initialize military ID
+  function generateMilitaryId() {
+    const prefix = 'US-';
+    const segments = Array.from({length: 3}, () =>
+      Math.floor(1000 + Math.random() * 9000)
+    );
+    const militaryId = prefix + segments.join('-');
+    document.getElementById('militaryId').value = militaryId;
+    updateConfigPreview();
+  }
+
+  // Select clearance card
+  function selectClearance(level) {
+    // Remove selected class from all cards
+    document.querySelectorAll('.military-card').forEach(card => {
+      card.classList.remove('selected');
+    });
+
+    // Add selected class to clicked card
+    event.currentTarget.classList.add('selected');
+
+    // Update hidden input or variable
+    window.selectedClearance = level;
+    updateConfigPreview();
+  }
+
+  // Update slider value displays
+  function initSliders() {
+    const sessionSlider = document.getElementById('sessionTimeout');
+    const sessionValue = document.getElementById('sessionTimeoutValue');
+    const frequencySlider = document.getElementById('frequencyRange');
+    const frequencyValue = document.getElementById('frequencyValue');
+
+    sessionSlider.addEventListener('input', function() {
+      sessionValue.textContent = `${this.value} min`;
+      updateConfigPreview();
+    });
+
+    frequencySlider.addEventListener('input', function() {
+      frequencyValue.textContent = `${this.value} MHz`;
+      updateConfigPreview();
+    });
+  }
+
+  // Textarea character counter
+  function initTextareaCounter() {
+    const textarea = document.getElementById('missionBriefing');
+    const counter = document.getElementById('briefingCount');
+
+    textarea.addEventListener('input', function() {
+      counter.textContent = this.value.length;
+
+      if (this.value.length > 900) {
+        counter.style.color = 'var(--alert-orange)';
+      } else if (this.value.length > 950) {
+        counter.style.color = 'var(--alert-red)';
+      } else {
+        counter.style.color = '';
+      }
+
+      updateConfigPreview();
+    });
+  }
+
+  // File upload handling
+  function handleFileSelect(event) {
+    const files = event.target.files;
+    const fileList = document.getElementById('missionFileList');
+    fileList.innerHTML = '';
+
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      const fileItem = document.createElement('div');
+      fileItem.className = 'file-item';
+
+      // Get appropriate icon
+      let icon = 'fa-file';
+      if (file.type.includes('image')) icon = 'fa-file-image';
+      else if (file.type.includes('pdf')) icon = 'fa-file-pdf';
+      else if (file.type.includes('zip') || file.type.includes('archive')) icon = 'fa-file-archive';
+      else if (file.type.includes('text')) icon = 'fa-file-alt';
+
+      // Format file size
+      const fileSize = file.size > 1024 * 1024
+        ? `${(file.size / (1024 * 1024)).toFixed(1)} MB`
+        : `${(file.size / 1024).toFixed(0)} KB`;
+
+      fileItem.innerHTML = `
+                    <i class="fas ${icon} file-icon"></i>
+                    <div class="file-info">
+                        <div class="file-name">${file.name}</div>
+                        <div class="file-size">${fileSize} • CLASSIFIED</div>
+                    </div>
+                    <button class="file-remove" onclick="removeFile(this)">
+                        <i class="fas fa-times"></i>
+                    </button>
+                `;
+
+      fileList.appendChild(fileItem);
+    }
+
+    updateConfigPreview();
+  }
+
+  function removeFile(button) {
+    const fileItem = button.closest('.file-item');
+    fileItem.remove();
+    updateConfigPreview();
+  }
+
+  // Update configuration preview
+  function updateConfigPreview() {
+    const preview = document.getElementById('configPreview');
+
+    // Gather all configuration data
+    const config = {
+      militaryId: document.getElementById('militaryId').value,
+      rank: document.getElementById('militaryRank').value,
+      fullName: document.getElementById('fullName').value,
+      clearance: document.querySelector('.military-card.selected .card-title')?.textContent || 'Not selected',
+      twoFactorAuth: document.getElementById('twoFactorAuth').checked,
+      sessionTimeout: document.getElementById('sessionTimeout').value,
+      maxLoginAttempts: document.getElementById('maxLoginAttempts').value,
+      lockoutDuration: document.getElementById('lockoutDuration').value,
+      operationMode: document.getElementById('operationMode').value,
+      authCode: document.getElementById('authCode').value,
+      commandingOfficer: document.getElementById('commandingOfficer').value,
+      missionBriefing: document.getElementById('missionBriefing').value.substring(0, 150) + '...',
+
+      // Get permissions
+      permissions: Array.from(document.querySelectorAll('.checkbox-input:checked:not([disabled])'))
+        .map(cb => cb.nextElementSibling.nextElementSibling.textContent),
+
+      // Get access type
+      accessType: document.querySelector('input[name="accessType"]:checked')?.nextElementSibling?.nextElementSibling?.textContent || 'Not selected',
+
+      // Get communication settings
+      commsEncrypted: document.getElementById('commsEncrypted').checked,
+      commsSatellite: document.getElementById('commsSatellite').checked,
+      commsFrequency: document.getElementById('commsFrequency').checked,
+      commsEmergency: document.getElementById('commsEmergency').checked,
+      frequencyRange: document.getElementById('frequencyRange').value + ' MHz'
+    };
+
+    // Format the preview in military style
+    let previewText = '';
+    previewText += '=== MILITARY CONFIGURATION SUMMARY ===\n\n';
+
+    previewText += '◆ IDENTIFICATION\n';
+    previewText += `  ID: ${config.militaryId || '[NOT SET]'}\n`;
+    previewText += `  Rank: ${config.rank.toUpperCase() || '[NOT SET]'}\n`;
+    previewText += `  Name: ${config.fullName || '[NOT SET]'}\n`;
+    previewText += `  Clearance: ${config.clearance}\n\n`;
+
+    previewText += '◆ SECURITY CONTROLS\n';
+    previewText += `  2FA: ${config.twoFactorAuth ? 'ENABLED' : 'DISABLED'}\n`;
+    previewText += `  Session Timeout: ${config.sessionTimeout} minutes\n`;
+    previewText += `  Max Login Attempts: ${config.maxLoginAttempts}\n`;
+    previewText += `  Lockout Duration: ${config.lockoutDuration} minutes\n\n`;
+
+    previewText += '◆ ACCESS PERMISSIONS\n';
+    if (config.permissions.length > 0) {
+      config.permissions.forEach(perm => {
+        previewText += `  ✓ ${perm}\n`;
+      });
+    } else {
+      previewText += '  [NO PERMISSIONS GRANTED]\n';
+    }
+    previewText += `  Access Type: ${config.accessType}\n\n`;
+
+    previewText += '◆ COMMUNICATIONS\n';
+    previewText += `  Encryption: ${config.commsEncrypted ? 'ACTIVE' : 'INACTIVE'}\n`;
+    previewText += `  Satellite Relay: ${config.commsSatellite ? 'ACTIVE' : 'INACTIVE'}\n`;
+    previewText += `  Frequency Hopping: ${config.commsFrequency ? 'ACTIVE' : 'INACTIVE'}\n`;
+    previewText += `  Emergency Broadcast: ${config.commsEmergency ? 'ENABLED' : 'DISABLED'}\n`;
+    previewText += `  Frequency: ${config.frequencyRange}\n\n`;
+
+    previewText += '◆ OPERATIONS\n';
+    previewText += `  Operation Mode: ${config.operationMode.toUpperCase()}\n`;
+    previewText += `  Auth Code: ${config.authCode || '[NOT SET]'}\n`;
+    previewText += `  Commanding Officer: ${config.commandingOfficer || '[NOT SET]'}\n`;
+    previewText += `  Mission Briefing: ${config.missionBriefing || '[NOT SET]'}\n\n`;
+
+    previewText += '=== END OF TRANSMISSION ===';
+
+    preview.textContent = previewText;
+
+    // Update timestamp
+    const now = new Date();
+    document.getElementById('lastUpdated').textContent =
+      now.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', second:'2-digit'});
+  }
+
+  // Action functions
+  function resetConfiguration() {
+    if (confirm('WARNING: This will reset all configuration to default values. Confirm?')) {
+      // Reset all form elements
+      document.querySelectorAll('input[type="text"], input[type="number"]').forEach(input => {
+        input.value = '';
+      });
+
+      document.getElementById('militaryRank').value = '';
+      document.getElementById('operationMode').value = 'standby';
+      document.getElementById('sessionTimeout').value = 15;
+      document.getElementById('sessionTimeoutValue').textContent = '15 min';
+      document.getElementById('maxLoginAttempts').value = 3;
+      document.getElementById('lockoutDuration').value = 30;
+      document.getElementById('frequencyRange').value = 150;
+      document.getElementById('frequencyValue').textContent = '150 MHz';
+      document.getElementById('missionBriefing').value = '';
+      document.getElementById('briefingCount').textContent = '0';
+      document.getElementById('missionFileList').innerHTML = '';
+
+      // Reset checkboxes
+      document.querySelectorAll('.checkbox-input').forEach(cb => {
+        if (cb.id === 'permission1' || cb.id === 'permission2') {
+          cb.checked = true;
+        } else {
+          cb.checked = false;
+        }
+      });
+
+      // Reset switches
+      document.getElementById('twoFactorAuth').checked = true;
+      document.getElementById('commsEncrypted').checked = true;
+      document.getElementById('commsSatellite').checked = true;
+      document.getElementById('commsFrequency').checked = false;
+      document.getElementById('commsEmergency').checked = false;
+
+      // Reset radio buttons
+      document.getElementById('accessRead').checked = true;
+
+      // Reset clearance cards
+      document.querySelectorAll('.military-card').forEach(card => {
+        card.classList.remove('selected');
+      });
+      document.querySelectorAll('.military-card')[1].classList.add('selected');
+
+      updateConfigPreview();
+
+      // Show confirmation
+      alert('Configuration reset to default values.');
+    }
+  }
+
+  function simulateLockdown() {
+    if (confirm('EMERGENCY LOCKDOWN\n\nThis will lock all systems and require manual override. Confirm?')) {
+      // Visual feedback
+      document.body.style.backgroundColor = 'rgba(184, 82, 82, 0.1)';
+
+      // Change all status indicators to critical
+      document.querySelectorAll('.status-indicator').forEach(indicator => {
+        indicator.className = 'status-indicator status-critical';
+        indicator.querySelector('.status-dot').style.backgroundColor = 'var(--alert-red)';
+        indicator.querySelector('span').textContent = 'LOCKDOWN';
+      });
+
+      // Disable all inputs
+      document.querySelectorAll('input, select, textarea, button').forEach(element => {
+        if (!element.classList.contains('military-button-danger')) {
+          element.disabled = true;
+        }
+      });
+
+      // Update preview with lockdown message
+      const preview = document.getElementById('configPreview');
+      preview.textContent = '=== EMERGENCY LOCKDOWN ACTIVATED ===\n\n' +
+        '◆ ALL SYSTEMS LOCKED\n' +
+        '◆ COMMUNICATIONS DISRUPTED\n' +
+        '◆ ACCESS RESTRICTED\n' +
+        '◆ AWAITING MANUAL OVERRIDE\n\n' +
+        '=== SECURE CHANNEL ESTABLISHED ===';
+
+      // Show alert
+      setTimeout(() => {
+        alert('LOCKDOWN PROTOCOL ACTIVATED\n\nAll systems secured. Manual override required.');
+      }, 500);
+
+      // Re-enable after 10 seconds for demo purposes
+      setTimeout(() => {
+        document.body.style.backgroundColor = '';
+        document.querySelectorAll('input, select, textarea, button').forEach(element => {
+          element.disabled = false;
+        });
+
+        // Restore status indicators
+        document.querySelectorAll('.status-indicator')[0].className = 'status-indicator status-active';
+        document.querySelectorAll('.status-indicator')[1].className = 'status-indicator status-warning';
+        document.querySelectorAll('.status-indicator')[2].className = 'status-indicator status-critical';
+
+        updateConfigPreview();
+      }, 10000);
+    }
+  }
+
+  function saveConfiguration() {
+    // Validate required fields
+    const requiredFields = [
+      {id: 'militaryId', name: 'Military ID'},
+      {id: 'militaryRank', name: 'Rank'},
+      {id: 'fullName', name: 'Full Name'},
+      {id: 'operationMode', name: 'Operation Mode'}
+    ];
+
+    let missingFields = [];
+    requiredFields.forEach(field => {
+      const element = document.getElementById(field.id);
+      if (!element.value || element.value.trim() === '') {
+        missingFields.push(field.name);
+        element.classList.add('error');
+      } else {
+        element.classList.remove('error');
+      }
+    });
+
+    if (missingFields.length > 0) {
+      alert(`MISSING REQUIRED FIELDS:\n\n• ${missingFields.join('\n• ')}\n\nPlease complete all required fields.`);
+      return;
+    }
+
+    // Show saving animation
+    const saveButton = document.querySelector('.military-button-primary');
+    const originalText = saveButton.innerHTML;
+    saveButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> SAVING...';
+    saveButton.disabled = true;
+
+    // Simulate save process
+    setTimeout(() => {
+      saveButton.innerHTML = originalText;
+      saveButton.disabled = false;
+
+      // Show success
+      alert('CONFIGURATION SAVED\n\nMilitary configuration has been securely stored in encrypted database.\n\nAccess Code: SECURE-' + Math.random().toString(36).substr(2, 8).toUpperCase());
+
+      // Update timestamp
+      const now = new Date();
+      document.getElementById('lastUpdated').textContent =
+        now.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', second:'2-digit'});
+    }, 1500);
+  }
+
+  function deployConfiguration() {
+    if (confirm('DEPLOY CONFIGURATION\n\nThis will apply all settings to active systems. Confirm deployment?')) {
+      // Show deployment animation
+      const deployButton = document.querySelector('.military-button-success');
+      const originalText = deployButton.innerHTML;
+      deployButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> DEPLOYING...';
+      deployButton.disabled = true;
+
+      // Simulate deployment process
+      let progress = 0;
+      const progressInterval = setInterval(() => {
+        progress += 10;
+        deployButton.innerHTML = `<i class="fas fa-spinner fa-spin"></i> DEPLOYING ${progress}%`;
+
+        if (progress >= 100) {
+          clearInterval(progressInterval);
+          deployButton.innerHTML = '<i class="fas fa-check"></i> DEPLOYED';
+
+          setTimeout(() => {
+            deployButton.innerHTML = originalText;
+            deployButton.disabled = false;
+
+            // Show success message
+            alert('DEPLOYMENT COMPLETE\n\nAll systems have been updated with new configuration.\n\nStatus: OPERATIONAL');
+          }, 1000);
+        }
+      }, 200);
+    }
+  }
+
+  // Initialize everything when page loads
+  document.addEventListener('DOMContentLoaded', function() {
+    generateMilitaryId();
+    initSliders();
+    initTextareaCounter();
+
+    // Add event listeners for real-time updates
+    document.querySelectorAll('input, select, textarea').forEach(element => {
+      element.addEventListener('change', updateConfigPreview);
+      element.addEventListener('input', updateConfigPreview);
+    });
+
+    // Add event listeners for checkboxes and switches
+    document.querySelectorAll('.checkbox-input, .switch-input, .radio-input').forEach(element => {
+      element.addEventListener('change', updateConfigPreview);
+    });
+
+    // Initialize config preview
+    updateConfigPreview();
+
+    // File upload drag and drop
+    const fileUploadArea = document.getElementById('fileUploadArea');
+
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+      fileUploadArea.addEventListener(eventName, preventDefaults, false);
+    });
+
+    function preventDefaults(e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+
+    ['dragenter', 'dragover'].forEach(eventName => {
+      fileUploadArea.addEventListener(eventName, highlight, false);
+    });
+
+    ['dragleave', 'drop'].forEach(eventName => {
+      fileUploadArea.addEventListener(eventName, unhighlight, false);
+    });
+
+    function highlight() {
+      fileUploadArea.classList.add('drag-over');
+    }
+
+    function unhighlight() {
+      fileUploadArea.classList.remove('drag-over');
+    }
+
+    fileUploadArea.addEventListener('drop', handleDrop, false);
+
+    function handleDrop(e) {
+      const dt = e.dataTransfer;
+      const files = dt.files;
+      handleFileSelect({target: {files}});
+    }
+  });
+</script>
+</body>
+</html>

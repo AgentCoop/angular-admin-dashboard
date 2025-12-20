@@ -1,1 +1,93 @@
-/* You can add global styles to this file, and also import other style files */
+// Import Tailwind CSS
+@use "tailwindcss";
+
+// Custom military theme variables using @theme directive [citation:3]
+@theme {
+  // Color palette
+  --color-camo-sand: #d4c9a8;
+  --color-camo-tan: #c2b280;
+  --color-camo-olive: #8b8b6c;
+  --color-camo-gray: #a0a0a0;
+  --color-camo-dark: #6c6c5c;
+  --color-steel-blue: #5a7d9a;
+  --color-field-green: #7d8c6c;
+  --color-desert-tan: #e0d6b8;
+  --color-military-white: #f5f5f0;
+  --color-military-black: #3a3a35;
+  --color-alert-red: #b85252;
+  --color-alert-orange: #d18c5a;
+  --color-success-green: #5a8c6c;
+
+  // Font families
+  --font-sans: Arial, Helvetica, sans-serif;
+  --font-mono: 'Courier New', monospace;
+
+  // Border radius
+  --radius-military-sm: 3px;
+  --radius-military-md: 5px;
+  --radius-military-lg: 8px;
+
+  // Box shadows
+  --shadow-military-sm: 0 2px 4px rgba(58, 58, 53, 0.1);
+  --shadow-military-md: 0 4px 8px rgba(58, 58, 53, 0.15);
+  --shadow-military-lg: 0 8px 16px rgba(58, 58, 53, 0.2);
+}
+
+// Global military styles
+@layer base {
+  html {
+    font-family: var(--font-sans);
+    background: var(--color-military-white);
+    color: var(--color-military-black);
+  }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+  }
+
+  // Military-themed scrollbar
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: var(--color-camo-tan);
+    border-radius: var(--radius-military-sm);
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: var(--color-camo-olive);
+    border-radius: var(--radius-military-sm);
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--color-camo-dark);
+  }
+}
+
+// Custom utility classes
+@layer utilities {
+  .military-panel {
+    @apply bg-gradient-to-r from-camo-tan via-steel-blue to-field-green;
+    border: 1px solid var(--color-camo-dark);
+    box-shadow: var(--shadow-military-md);
+  }
+
+  .military-grid-bg {
+    background-image: linear-gradient(rgba(212, 201, 168, 0.1) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(212, 201, 168, 0.1) 1px, transparent 1px);
+    background-size: 20px 20px;
+  }
+
+  .alert-panel {
+    border-left: 4px solid var(--color-alert-red);
+    background: linear-gradient(90deg, rgba(184, 82, 82, 0.1), transparent);
+  }
+
+  .success-panel {
+    border-left: 4px solid var(--color-success-green);
+    background: linear-gradient(90deg, rgba(90, 140, 108, 0.1), transparent);
+  }
+}

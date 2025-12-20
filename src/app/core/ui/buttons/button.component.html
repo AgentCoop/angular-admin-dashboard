@@ -1,0 +1,25 @@
+<ng-container *ngIf="routerLink; else buttonTemplate">
+  <a
+    [routerLink]="routerLink"
+    [class]="buttonClasses"
+    [attr.disabled]="disabled || loading ? true : null"
+  >
+    <ng-container *ngTemplateOutlet="buttonContent"></ng-container>
+  </a>
+</ng-container>
+
+<ng-template #buttonTemplate>
+  <button
+    [class]="buttonClasses"
+    [disabled]="disabled || loading"
+    (click)="onClick()"
+    type="button"
+  >
+    <ng-container *ngTemplateOutlet="buttonContent"></ng-container>
+  </button>
+</ng-template>
+
+<ng-template #buttonContent>
+  <i *ngIf="loading" class="fas fa-spinner fa-spin"></i>
+  <ng-content></ng-content>
+</ng-template>

@@ -1,0 +1,833 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Military Navigation Menu</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            // Military color palette
+            'camo-sand': '#d4c9a8',
+            'camo-tan': '#c2b280',
+            'camo-olive': '#8b8b6c',
+            'camo-gray': '#a0a0a0',
+            'camo-dark': '#6c6c5c',
+            'steel-blue': '#5a7d9a',
+            'field-green': '#7d8c6c',
+            'desert-tan': '#e0d6b8',
+            'military-white': '#f5f5f0',
+            'military-black': '#3a3a35',
+            'alert-red': '#b85252',
+            'alert-orange': '#d18c5a',
+            'success-green': '#5a8c6c',
+          },
+          fontFamily: {
+            'military': ['Arial', 'Helvetica', 'sans-serif'],
+            'code': ['Courier New', 'monospace'],
+          },
+          boxShadow: {
+            'military-sm': '0 2px 4px rgba(58, 58, 53, 0.1)',
+            'military-md': '0 4px 8px rgba(58, 58, 53, 0.15)',
+            'military-lg': '0 8px 16px rgba(58, 58, 53, 0.2)',
+          },
+          animation: {
+            'slide-down': 'slide-down 0.3s ease-out',
+            'slide-up': 'slide-up 0.3s ease-out',
+            'fade-in': 'fade-in 0.3s ease-out',
+          },
+          keyframes: {
+            'slide-down': {
+              '0%': { opacity: 0, transform: 'translateY(-10px)' },
+              '100%': { opacity: 1, transform: 'translateY(0)' },
+            },
+            'slide-up': {
+              '0%': { opacity: 1, transform: 'translateY(0)' },
+              '100%': { opacity: 0, transform: 'translateY(-10px)' },
+            },
+            'fade-in': {
+              '0%': { opacity: 0 },
+              '100%': { opacity: 1 },
+            },
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    /* Custom styles for military navigation */
+    .military-grid {
+      background-image:
+        linear-gradient(rgba(212, 201, 168, 0.1) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(212, 201, 168, 0.1) 1px, transparent 1px);
+      background-size: 20px 20px;
+    }
+
+    .top-secret-stamp {
+      position: absolute;
+      right: 20px;
+      top: 20px;
+      transform: rotate(15deg);
+      opacity: 0.1;
+      pointer-events: none;
+    }
+
+    /* Custom scrollbar */
+    ::-webkit-scrollbar {
+      width: 8px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: #e0d6b8;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: #8b8b6c;
+      border-radius: 2px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: #6c6c5c;
+    }
+
+    /* Mobile menu animation */
+    @keyframes slideInRight {
+      from { transform: translateX(100%); }
+      to { transform: translateX(0); }
+    }
+
+    .mobile-menu-enter {
+      animation: slideInRight 0.3s ease-out;
+    }
+
+    /* Menu item active state */
+    .menu-item-active {
+      background: linear-gradient(90deg, rgba(90, 125, 154, 0.1), rgba(90, 125, 154, 0.05));
+      border-left: 3px solid #5a7d9a;
+      border-right: 1px solid rgba(90, 125, 154, 0.2);
+    }
+
+    /* Notification badge */
+    .notification-badge {
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+  </style>
+</head>
+<body class="bg-military-white military-grid font-military text-military-black min-h-screen">
+
+<!-- Main Navigation Container -->
+<div class="flex min-h-screen">
+
+  <!-- Desktop Sidebar Navigation -->
+  <aside id="desktopNav" class="hidden lg:flex flex-col w-64 bg-white border-r border-camo-tan shadow-military-md">
+
+    <!-- Header with Logo -->
+    <div class="p-6 border-b border-camo-sand">
+      <div class="flex items-center space-x-3">
+        <div class="w-10 h-10 rounded-lg bg-steel-blue flex items-center justify-center">
+          <i class="fas fa-shield-alt text-white text-xl"></i>
+        </div>
+        <div>
+          <h1 class="text-lg font-bold uppercase tracking-wide text-military-black">COMMAND CENTER</h1>
+          <p class="text-xs text-camo-dark">v2.1.4 • SECURE</p>
+        </div>
+      </div>
+
+      <!-- User Status -->
+      <div class="mt-6 p-3 bg-desert-tan/50 rounded border border-camo-tan">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center space-x-3">
+            <div class="w-8 h-8 rounded-full bg-steel-blue flex items-center justify-center">
+              <i class="fas fa-user text-white text-sm"></i>
+            </div>
+            <div>
+              <p class="text-sm font-semibold text-military-black">Operator-742</p>
+              <p class="text-xs text-camo-dark">Captain • Level 3</p>
+            </div>
+          </div>
+          <div class="w-2 h-2 rounded-full bg-success-green animate-pulse"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Main Navigation Menu -->
+    <nav class="flex-1 overflow-y-auto py-4">
+      <ul class="space-y-1 px-3">
+
+        <!-- Dashboard -->
+        <li>
+          <a href="#" class="menu-item-active flex items-center justify-between p-3 rounded-lg hover:bg-desert-tan/50 transition-colors group">
+            <div class="flex items-center space-x-3">
+              <i class="fas fa-tachometer-alt text-steel-blue w-5"></i>
+              <span class="font-medium text-military-black">Dashboard</span>
+            </div>
+            <span class="text-xs bg-steel-blue/10 text-steel-blue px-2 py-1 rounded">LIVE</span>
+          </a>
+        </li>
+
+        <!-- Divider -->
+        <li class="px-3 py-2">
+          <div class="text-xs font-bold uppercase tracking-wider text-camo-dark flex items-center">
+            <span class="flex-1 border-t border-camo-sand"></span>
+            <span class="px-2">Intelligence</span>
+            <span class="flex-1 border-t border-camo-sand"></span>
+          </div>
+        </li>
+
+        <!-- Intelligence (with submenu) -->
+        <li class="relative">
+          <button class="menu-item flex items-center justify-between w-full p-3 rounded-lg hover:bg-desert-tan/50 transition-colors group"
+                  onclick="toggleSubmenu('intelSubmenu', this)">
+            <div class="flex items-center space-x-3">
+              <i class="fas fa-binoculars text-steel-blue w-5"></i>
+              <span class="font-medium text-military-black">Intelligence</span>
+            </div>
+            <div class="flex items-center space-x-2">
+              <span class="notification-badge w-2 h-2 rounded-full bg-alert-red"></span>
+              <i class="fas fa-chevron-down text-camo-dark text-xs transition-transform group-[.expanded]:rotate-180"></i>
+            </div>
+          </button>
+
+          <!-- Submenu -->
+          <ul id="intelSubmenu" class="hidden ml-4 mt-1 space-y-1 border-l border-camo-sand pl-3">
+            <li>
+              <a href="#" class="flex items-center space-x-3 p-2 rounded hover:bg-desert-tan/30 transition-colors">
+                <i class="fas fa-map-marked-alt text-camo-olive text-sm w-5"></i>
+                <span class="text-sm text-military-black">Geospatial Intel</span>
+              </a>
+            </li>
+            <li>
+              <button class="flex items-center justify-between w-full p-2 rounded hover:bg-desert-tan/30 transition-colors group"
+                      onclick="toggleSubmenu('sigintSubmenu', this)">
+                <div class="flex items-center space-x-3">
+                  <i class="fas fa-satellite-dish text-camo-olive text-sm w-5"></i>
+                  <span class="text-sm text-military-black">SIGINT</span>
+                </div>
+                <i class="fas fa-chevron-right text-camo-dark text-xs transition-transform group-[.expanded]:rotate-90"></i>
+              </button>
+
+              <!-- Nested Submenu -->
+              <ul id="sigintSubmenu" class="hidden ml-4 mt-1 space-y-1 border-l border-camo-sand pl-3">
+                <li>
+                  <a href="#" class="flex items-center space-x-3 p-2 rounded hover:bg-desert-tan/20 transition-colors">
+                    <i class="fas fa-wifi text-camo-gray text-xs w-5"></i>
+                    <span class="text-xs text-military-black">Signals Analysis</span>
+                  </a>
+                </li>
+                <li>
+                  <a href="#" class="flex items-center space-x-3 p-2 rounded hover:bg-desert-tan/20 transition-colors">
+                    <i class="fas fa-code text-camo-gray text-xs w-5"></i>
+                    <span class="text-xs text-military-black">Code Breaking</span>
+                  </a>
+                </li>
+              </ul>
+            </li>
+            <li>
+              <a href="#" class="flex items-center space-x-3 p-2 rounded hover:bg-desert-tan/30 transition-colors">
+                <i class="fas fa-user-secret text-camo-olive text-sm w-5"></i>
+                <span class="text-sm text-military-black">HUMINT</span>
+              </a>
+            </li>
+          </ul>
+        </li>
+
+        <!-- Operations -->
+        <li>
+          <button class="menu-item flex items-center justify-between w-full p-3 rounded-lg hover:bg-desert-tan/50 transition-colors group"
+                  onclick="toggleSubmenu('opsSubmenu', this)">
+            <div class="flex items-center space-x-3">
+              <i class="fas fa-crosshairs text-steel-blue w-5"></i>
+              <span class="font-medium text-military-black">Operations</span>
+            </div>
+            <div class="flex items-center space-x-2">
+              <span class="text-xs bg-alert-orange/10 text-alert-orange px-2 py-1 rounded">3 ACTIVE</span>
+              <i class="fas fa-chevron-down text-camo-dark text-xs transition-transform group-[.expanded]:rotate-180"></i>
+            </div>
+          </button>
+
+          <!-- Submenu -->
+          <ul id="opsSubmenu" class="hidden ml-4 mt-1 space-y-1 border-l border-camo-sand pl-3">
+            <li>
+              <a href="#" class="flex items-center space-x-3 p-2 rounded hover:bg-desert-tan/30 transition-colors">
+                <i class="fas fa-plane text-camo-olive text-sm w-5"></i>
+                <span class="text-sm text-military-black">Air Operations</span>
+              </a>
+            </li>
+            <li>
+              <a href="#" class="flex items-center space-x-3 p-2 rounded hover:bg-desert-tan/30 transition-colors">
+                <i class="fas fa-ship text-camo-olive text-sm w-5"></i>
+                <span class="text-sm text-military-black">Naval Operations</span>
+              </a>
+            </li>
+            <li>
+              <a href="#" class="flex items-center space-x-3 p-2 rounded hover:bg-desert-tan/30 transition-colors">
+                <i class="fas fa-user-ninja text-camo-olive text-sm w-5"></i>
+                <span class="text-sm text-military-black">Special Forces</span>
+              </a>
+            </li>
+          </ul>
+        </li>
+
+        <!-- Divider -->
+        <li class="px-3 py-2">
+          <div class="text-xs font-bold uppercase tracking-wider text-camo-dark flex items-center">
+            <span class="flex-1 border-t border-camo-sand"></span>
+            <span class="px-2">Communications</span>
+            <span class="flex-1 border-t border-camo-sand"></span>
+          </div>
+        </li>
+
+        <!-- Communications -->
+        <li>
+          <a href="#" class="menu-item flex items-center justify-between p-3 rounded-lg hover:bg-desert-tan/50 transition-colors">
+            <div class="flex items-center space-x-3">
+              <i class="fas fa-satellite text-steel-blue w-5"></i>
+              <span class="font-medium text-military-black">Comms</span>
+            </div>
+            <span class="text-xs bg-success-green/10 text-success-green px-2 py-1 rounded">ENCRYPTED</span>
+          </a>
+        </li>
+
+        <!-- Equipment -->
+        <li>
+          <button class="menu-item flex items-center justify-between w-full p-3 rounded-lg hover:bg-desert-tan/50 transition-colors group"
+                  onclick="toggleSubmenu('equipSubmenu', this)">
+            <div class="flex items-center space-x-3">
+              <i class="fas fa-tools text-steel-blue w-5"></i>
+              <span class="font-medium text-military-black">Equipment</span>
+            </div>
+            <i class="fas fa-chevron-down text-camo-dark text-xs transition-transform group-[.expanded]:rotate-180"></i>
+          </button>
+
+          <!-- Submenu -->
+          <ul id="equipSubmenu" class="hidden ml-4 mt-1 space-y-1 border-l border-camo-sand pl-3">
+            <li>
+              <a href="#" class="flex items-center space-x-3 p-2 rounded hover:bg-desert-tan/30 transition-colors">
+                <i class="fas fa-fighter-jet text-camo-olive text-sm w-5"></i>
+                <span class="text-sm text-military-black">Aircraft</span>
+              </a>
+            </li>
+            <li>
+              <a href="#" class="flex items-center space-x-3 p-2 rounded hover:bg-desert-tan/30 transition-colors">
+                <i class="fas fa-tank text-camo-olive text-sm w-5"></i>
+                <span class="text-sm text-military-black">Ground Vehicles</span>
+              </a>
+            </li>
+            <li>
+              <a href="#" class="flex items-center space-x-3 p-2 rounded hover:bg-desert-tan/30 transition-colors">
+                <i class="fas fa-shield-alt text-camo-olive text-sm w-5"></i>
+                <span class="text-sm text-military-black">Defense Systems</span>
+              </a>
+            </li>
+          </ul>
+        </li>
+
+        <!-- Personnel -->
+        <li>
+          <a href="#" class="menu-item flex items-center justify-between p-3 rounded-lg hover:bg-desert-tan/50 transition-colors">
+            <div class="flex items-center space-x-3">
+              <i class="fas fa-users text-steel-blue w-5"></i>
+              <span class="font-medium text-military-black">Personnel</span>
+            </div>
+            <span class="text-xs bg-steel-blue text-white px-2 py-1 rounded">12</span>
+          </a>
+        </li>
+
+        <!-- Divider -->
+        <li class="px-3 py-2">
+          <div class="text-xs font-bold uppercase tracking-wider text-camo-dark flex items-center">
+            <span class="flex-1 border-t border-camo-sand"></span>
+            <span class="px-2">System</span>
+            <span class="flex-1 border-t border-camo-sand"></span>
+          </div>
+        </li>
+
+        <!-- Settings -->
+        <li>
+          <a href="#" class="menu-item flex items-center space-x-3 p-3 rounded-lg hover:bg-desert-tan/50 transition-colors">
+            <i class="fas fa-cog text-steel-blue w-5"></i>
+            <span class="font-medium text-military-black">Settings</span>
+          </a>
+        </li>
+
+        <!-- Logs -->
+        <li>
+          <a href="#" class="menu-item flex items-center space-x-3 p-3 rounded-lg hover:bg-desert-tan/50 transition-colors">
+            <i class="fas fa-clipboard-list text-steel-blue w-5"></i>
+            <span class="font-medium text-military-black">Mission Logs</span>
+          </a>
+        </li>
+
+        <!-- Emergency -->
+        <li class="mt-6">
+          <a href="#" class="menu-item flex items-center space-x-3 p-3 rounded-lg border border-alert-red/30 bg-alert-red/5 hover:bg-alert-red/10 transition-colors group">
+            <i class="fas fa-exclamation-triangle text-alert-red w-5"></i>
+            <span class="font-medium text-alert-red">Emergency Protocol</span>
+          </a>
+        </li>
+      </ul>
+    </nav>
+
+    <!-- Footer -->
+    <div class="p-4 border-t border-camo-sand">
+      <div class="flex items-center justify-between">
+        <div class="text-xs text-camo-dark">
+          <div class="flex items-center space-x-2">
+            <div class="w-2 h-2 rounded-full bg-success-green animate-pulse"></div>
+            <span>System: ONLINE</span>
+          </div>
+          <div class="mt-1">Alert Level: <span class="font-bold text-alert-orange">2</span></div>
+        </div>
+        <button class="p-2 hover:bg-desert-tan/50 rounded transition-colors" title="Lock System">
+          <i class="fas fa-lock text-camo-dark"></i>
+        </button>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Main Content Area -->
+  <main class="flex-1">
+
+    <!-- Mobile Header -->
+    <header class="lg:hidden bg-white border-b border-camo-tan shadow-military-sm sticky top-0 z-40">
+      <div class="flex items-center justify-between p-4">
+        <button class="p-2 hover:bg-desert-tan/50 rounded transition-colors" onclick="toggleMobileMenu()">
+          <i class="fas fa-bars text-steel-blue text-xl"></i>
+        </button>
+
+        <div class="flex items-center space-x-3">
+          <div class="w-8 h-8 rounded-lg bg-steel-blue flex items-center justify-center">
+            <i class="fas fa-shield-alt text-white"></i>
+          </div>
+          <div>
+            <h1 class="text-lg font-bold uppercase tracking-wide text-military-black">COMMAND</h1>
+          </div>
+        </div>
+
+        <div class="flex items-center space-x-3">
+          <div class="relative">
+            <i class="fas fa-bell text-camo-dark"></i>
+            <span class="notification-badge absolute -top-1 -right-1 w-2 h-2 rounded-full bg-alert-red"></span>
+          </div>
+          <div class="w-2 h-2 rounded-full bg-success-green animate-pulse"></div>
+        </div>
+      </div>
+    </header>
+
+    <!-- Mobile Navigation Overlay -->
+    <div id="mobileNav" class="lg:hidden fixed inset-0 z-50 hidden">
+      <!-- Backdrop -->
+      <div class="absolute inset-0 bg-black/50" onclick="toggleMobileMenu()"></div>
+
+      <!-- Mobile Menu -->
+      <div class="absolute right-0 top-0 bottom-0 w-80 bg-white shadow-military-lg mobile-menu-enter overflow-y-auto">
+
+        <!-- Mobile Header -->
+        <div class="p-6 border-b border-camo-sand bg-white">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+              <div class="w-10 h-10 rounded-lg bg-steel-blue flex items-center justify-center">
+                <i class="fas fa-shield-alt text-white text-xl"></i>
+              </div>
+              <div>
+                <h1 class="text-lg font-bold uppercase tracking-wide text-military-black">COMMAND CENTER</h1>
+                <p class="text-xs text-camo-dark">v2.1.4 • SECURE</p>
+              </div>
+            </div>
+            <button class="p-2 hover:bg-desert-tan/50 rounded transition-colors" onclick="toggleMobileMenu()">
+              <i class="fas fa-times text-camo-dark"></i>
+            </button>
+          </div>
+
+          <!-- User Status -->
+          <div class="mt-6 p-3 bg-desert-tan/50 rounded border border-camo-tan">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center space-x-3">
+                <div class="w-8 h-8 rounded-full bg-steel-blue flex items-center justify-center">
+                  <i class="fas fa-user text-white text-sm"></i>
+                </div>
+                <div>
+                  <p class="text-sm font-semibold text-military-black">Operator-742</p>
+                  <p class="text-xs text-camo-dark">Captain • Level 3</p>
+                </div>
+              </div>
+              <div class="w-2 h-2 rounded-full bg-success-green animate-pulse"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Mobile Navigation -->
+        <nav class="py-4 px-3">
+          <ul class="space-y-1">
+            <!-- Same navigation items as desktop but adjusted for mobile -->
+            <!-- Dashboard -->
+            <li>
+              <a href="#" class="menu-item-active flex items-center justify-between p-3 rounded-lg hover:bg-desert-tan/50 transition-colors group" onclick="toggleMobileMenu()">
+                <div class="flex items-center space-x-3">
+                  <i class="fas fa-tachometer-alt text-steel-blue w-5"></i>
+                  <span class="font-medium text-military-black">Dashboard</span>
+                </div>
+                <span class="text-xs bg-steel-blue/10 text-steel-blue px-2 py-1 rounded">LIVE</span>
+              </a>
+            </li>
+
+            <!-- Divider -->
+            <li class="py-2">
+              <div class="text-xs font-bold uppercase tracking-wider text-camo-dark flex items-center">
+                <span class="flex-1 border-t border-camo-sand"></span>
+                <span class="px-2">Intelligence</span>
+                <span class="flex-1 border-t border-camo-sand"></span>
+              </div>
+            </li>
+
+            <!-- Intelligence Mobile -->
+            <li>
+              <button class="menu-item flex items-center justify-between w-full p-3 rounded-lg hover:bg-desert-tan/50 transition-colors group"
+                      onclick="toggleSubmenu('mobileIntelSubmenu', this)">
+                <div class="flex items-center space-x-3">
+                  <i class="fas fa-binoculars text-steel-blue w-5"></i>
+                  <span class="font-medium text-military-black">Intelligence</span>
+                </div>
+                <div class="flex items-center space-x-2">
+                  <span class="notification-badge w-2 h-2 rounded-full bg-alert-red"></span>
+                  <i class="fas fa-chevron-down text-camo-dark text-xs transition-transform group-[.expanded]:rotate-180"></i>
+                </div>
+              </button>
+
+              <!-- Mobile Submenu -->
+              <ul id="mobileIntelSubmenu" class="hidden ml-4 mt-1 space-y-1 border-l border-camo-sand pl-3">
+                <li>
+                  <a href="#" class="flex items-center space-x-3 p-2 rounded hover:bg-desert-tan/30 transition-colors" onclick="toggleMobileMenu()">
+                    <i class="fas fa-map-marked-alt text-camo-olive text-sm w-5"></i>
+                    <span class="text-sm text-military-black">Geospatial Intel</span>
+                  </a>
+                </li>
+                <li>
+                  <button class="flex items-center justify-between w-full p-2 rounded hover:bg-desert-tan/30 transition-colors group"
+                          onclick="toggleSubmenu('mobileSigintSubmenu', this)">
+                    <div class="flex items-center space-x-3">
+                      <i class="fas fa-satellite-dish text-camo-olive text-sm w-5"></i>
+                      <span class="text-sm text-military-black">SIGINT</span>
+                    </div>
+                    <i class="fas fa-chevron-right text-camo-dark text-xs transition-transform group-[.expanded]:rotate-90"></i>
+                  </button>
+
+                  <!-- Nested Mobile Submenu -->
+                  <ul id="mobileSigintSubmenu" class="hidden ml-4 mt-1 space-y-1 border-l border-camo-sand pl-3">
+                    <li>
+                      <a href="#" class="flex items-center space-x-3 p-2 rounded hover:bg-desert-tan/20 transition-colors" onclick="toggleMobileMenu()">
+                        <i class="fas fa-wifi text-camo-gray text-xs w-5"></i>
+                        <span class="text-xs text-military-black">Signals Analysis</span>
+                      </a>
+                    </li>
+                    <li>
+                      <a href="#" class="flex items-center space-x-3 p-2 rounded hover:bg-desert-tan/20 transition-colors" onclick="toggleMobileMenu()">
+                        <i class="fas fa-code text-camo-gray text-xs w-5"></i>
+                        <span class="text-xs text-military-black">Code Breaking</span>
+                      </a>
+                    </li>
+                  </ul>
+                </li>
+                <li>
+                  <a href="#" class="flex items-center space-x-3 p-2 rounded hover:bg-desert-tan/30 transition-colors" onclick="toggleMobileMenu()">
+                    <i class="fas fa-user-secret text-camo-olive text-sm w-5"></i>
+                    <span class="text-sm text-military-black">HUMINT</span>
+                  </a>
+                </li>
+              </ul>
+            </li>
+
+            <!-- Emergency (Mobile) -->
+            <li class="mt-6">
+              <a href="#" class="menu-item flex items-center space-x-3 p-3 rounded-lg border border-alert-red/30 bg-alert-red/5 hover:bg-alert-red/10 transition-colors group" onclick="toggleMobileMenu()">
+                <i class="fas fa-exclamation-triangle text-alert-red w-5"></i>
+                <span class="font-medium text-alert-red">Emergency Protocol</span>
+              </a>
+            </li>
+          </ul>
+        </nav>
+      </div>
+    </div>
+
+    <!-- Top Navigation Bar (for desktop) -->
+    <div class="hidden lg:block bg-white border-b border-camo-tan shadow-military-sm">
+      <div class="flex items-center justify-between px-6 py-4">
+        <div class="flex items-center space-x-6">
+          <!-- Breadcrumb -->
+          <nav class="flex items-center space-x-2 text-sm">
+            <a href="#" class="text-camo-dark hover:text-steel-blue transition-colors">Command Center</a>
+            <i class="fas fa-chevron-right text-camo-gray text-xs"></i>
+            <span class="text-military-black font-medium">Dashboard</span>
+          </nav>
+
+          <!-- Quick Stats -->
+          <div class="hidden xl:flex items-center space-x-4">
+            <div class="flex items-center space-x-2">
+              <div class="w-2 h-2 rounded-full bg-success-green"></div>
+              <span class="text-xs text-camo-dark">System: ONLINE</span>
+            </div>
+            <div class="text-xs text-camo-dark">
+              Active Missions: <span class="font-bold text-steel-blue">3</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Top Right Controls -->
+        <div class="flex items-center space-x-4">
+          <!-- Search -->
+          <div class="relative">
+            <input type="text"
+                   placeholder="Search intel..."
+                   class="pl-10 pr-4 py-2 w-64 border border-camo-sand rounded-lg focus:outline-none focus:border-steel-blue focus:ring-1 focus:ring-steel-blue/30 text-sm">
+            <i class="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-camo-olive"></i>
+          </div>
+
+          <!-- Notifications -->
+          <div class="relative">
+            <button class="p-2 hover:bg-desert-tan/50 rounded-lg transition-colors relative">
+              <i class="fas fa-bell text-camo-dark"></i>
+              <span class="notification-badge absolute top-1 right-1 w-2 h-2 rounded-full bg-alert-red"></span>
+            </button>
+
+            <!-- Notification Dropdown -->
+            <div class="absolute right-0 top-full mt-2 w-80 bg-white rounded-lg shadow-military-lg border border-camo-tan hidden" id="notificationDropdown">
+              <div class="p-4 border-b border-camo-sand">
+                <div class="flex items-center justify-between">
+                  <h3 class="font-bold text-military-black">Alerts</h3>
+                  <span class="text-xs text-steel-blue cursor-pointer hover:underline">Mark all read</span>
+                </div>
+              </div>
+              <div class="max-h-80 overflow-y-auto">
+                <!-- Notification items would go here -->
+              </div>
+            </div>
+          </div>
+
+          <!-- User Menu -->
+          <div class="relative">
+            <button class="flex items-center space-x-3 p-2 hover:bg-desert-tan/50 rounded-lg transition-colors"
+                    onclick="toggleDropdown('userDropdown')">
+              <div class="w-8 h-8 rounded-full bg-steel-blue flex items-center justify-center">
+                <i class="fas fa-user text-white text-sm"></i>
+              </div>
+              <div class="text-left hidden xl:block">
+                <p class="text-sm font-medium text-military-black">Operator-742</p>
+                <p class="text-xs text-camo-dark">Captain • TS Clearance</p>
+              </div>
+              <i class="fas fa-chevron-down text-camo-dark text-xs"></i>
+            </button>
+
+            <!-- User Dropdown -->
+            <div class="absolute right-0 top-full mt-2 w-48 bg-white rounded-lg shadow-military-lg border border-camo-tan hidden" id="userDropdown">
+              <div class="py-2">
+                <a href="#" class="flex items-center space-x-3 px-4 py-2 hover:bg-desert-tan/30 transition-colors">
+                  <i class="fas fa-user text-steel-blue w-4"></i>
+                  <span class="text-sm text-military-black">Profile</span>
+                </a>
+                <a href="#" class="flex items-center space-x-3 px-4 py-2 hover:bg-desert-tan/30 transition-colors">
+                  <i class="fas fa-cog text-steel-blue w-4"></i>
+                  <span class="text-sm text-military-black">Settings</span>
+                </a>
+                <div class="border-t border-camo-sand my-2"></div>
+                <a href="#" class="flex items-center space-x-3 px-4 py-2 hover:bg-desert-tan/30 transition-colors text-alert-red">
+                  <i class="fas fa-sign-out-alt w-4"></i>
+                  <span class="text-sm">Logout</span>
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="p-4 lg:p-6">
+      <div class="max-w-7xl mx-auto">
+
+        <!-- Dashboard Header -->
+        <div class="mb-6">
+          <h2 class="text-2xl lg:text-3xl font-bold uppercase tracking-wide text-military-black">
+            Command Dashboard
+          </h2>
+          <p class="text-camo-dark mt-2">Real-time operational overview and mission control</p>
+
+          <!-- Status Indicators -->
+          <div class="flex flex-wrap gap-4 mt-4">
+            <div class="flex items-center bg-white border border-camo-tan rounded-lg px-4 py-3 shadow-military-sm">
+              <div class="w-3 h-3 rounded-full bg-success-green mr-3"></div>
+              <div>
+                <p class="text-sm font-semibold text-military-black">System Status</p>
+                <p class="text-xs text-camo-dark">All systems operational</p>
+              </div>
+            </div>
+            <div class="flex items-center bg-white border border-camo-tan rounded-lg px-4 py-3 shadow-military-sm">
+              <div class="w-3 h-3 rounded-full bg-steel-blue mr-3"></div>
+              <div>
+                <p class="text-sm font-semibold text-military-black">Active Missions</p>
+                <p class="text-xs text-camo-dark">3 missions in progress</p>
+              </div>
+            </div>
+            <div class="flex items-center bg-white border border-camo-tan rounded-lg px-4 py-3 shadow-military-sm">
+              <div class="w-3 h-3 rounded-full bg-alert-orange mr-3"></div>
+              <div>
+                <p class="text-sm font-semibold text-military-black">Alert Level</p>
+                <p class="text-xs text-camo-dark">Elevated - Level 2</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Content Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+
+          <!-- Mission Status Card -->
+          <div class="bg-white rounded-lg border border-camo-tan shadow-military-sm p-6">
+            <div class="flex items-center justify-between mb-4">
+              <h3 class="font-bold text-lg text-military-black">Active Missions</h3>
+              <span class="text-xs bg-steel-blue text-white px-2 py-1 rounded">LIVE</span>
+            </div>
+            <!-- Mission content would go here -->
+          </div>
+
+          <!-- System Status Card -->
+          <div class="bg-white rounded-lg border border-camo-tan shadow-military-sm p-6">
+            <div class="flex items-center justify-between mb-4">
+              <h3 class="font-bold text-lg text-military-black">System Health</h3>
+              <i class="fas fa-server text-steel-blue"></i>
+            </div>
+            <!-- System status content would go here -->
+          </div>
+
+          <!-- Communications Card -->
+          <div class="bg-white rounded-lg border border-camo-tan shadow-military-sm p-6">
+            <div class="flex items-center justify-between mb-4">
+              <h3 class="font-bold text-lg text-military-black">Communications</h3>
+              <span class="text-xs bg-success-green text-white px-2 py-1 rounded">SECURE</span>
+            </div>
+            <!-- Communications content would go here -->
+          </div>
+        </div>
+
+        <!-- Demo Instructions -->
+        <div class="mt-8 p-6 bg-desert-tan/30 border border-camo-tan rounded-lg">
+          <h3 class="font-bold text-lg text-military-black mb-3">Navigation Features Demo</h3>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <p class="text-sm text-camo-dark mb-2"><i class="fas fa-check text-success-green mr-2"></i> <strong>Multi-level expandable menus</strong> - Click arrows to expand/collapse</p>
+              <p class="text-sm text-camo-dark mb-2"><i class="fas fa-check text-success-green mr-2"></i> <strong>Adaptive design</strong - Responsive for all screen sizes</p>
+              <p class="text-sm text-camo-dark mb-2"><i class="fas fa-check text-success-green mr-2"></i> <strong>Military styling</strong> - Uses camo color palette</p>
+            </div>
+            <div>
+              <p class="text-sm text-camo-dark mb-2"><i class="fas fa-check text-success-green mr-2"></i> <strong>Section dividers</strong> - Clear visual separation</p>
+              <p class="text-sm text-camo-dark mb-2"><i class="fas fa-check text-success-green mr-2"></i> <strong>Status indicators</strong> - Badges, dots, and labels</p>
+              <p class="text-sm text-camo-dark mb-2"><i class="fas fa-check text-success-green mr-2"></i> <strong>Mobile menu</strong> - Slide-out menu on mobile</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+  // Toggle submenus
+  function toggleSubmenu(submenuId, button) {
+    const submenu = document.getElementById(submenuId);
+    const isExpanded = submenu.classList.contains('hidden');
+
+    // Close all other submenus at the same level
+    const parentLi = button.closest('li');
+    const siblingSubmenus = parentLi.parentElement.querySelectorAll('ul:not(.hidden)');
+    siblingSubmenus.forEach(menu => {
+      if (menu !== submenu) {
+        menu.classList.add('hidden');
+        const siblingButton = menu.previousElementSibling;
+        if (siblingButton) siblingButton.classList.remove('expanded');
+      }
+    });
+
+    // Toggle current submenu
+    if (isExpanded) {
+      submenu.classList.remove('hidden');
+      button.classList.add('expanded');
+      submenu.style.animation = 'slide-down 0.3s ease-out';
+    } else {
+      submenu.classList.add('hidden');
+      button.classList.remove('expanded');
+    }
+  }
+
+  // Toggle mobile menu
+  function toggleMobileMenu() {
+    const mobileNav = document.getElementById('mobileNav');
+    mobileNav.classList.toggle('hidden');
+    document.body.style.overflow = mobileNav.classList.contains('hidden') ? 'auto' : 'hidden';
+  }
+
+  // Toggle dropdowns
+  function toggleDropdown(dropdownId) {
+    const dropdown = document.getElementById(dropdownId);
+    dropdown.classList.toggle('hidden');
+
+    // Close other dropdowns
+    const allDropdowns = document.querySelectorAll('[id$="Dropdown"]:not(#' + dropdownId + ')');
+    allDropdowns.forEach(dd => dd.classList.add('hidden'));
+  }
+
+  // Close dropdowns when clicking outside
+  document.addEventListener('click', function(event) {
+    if (!event.target.closest('.relative')) {
+      document.querySelectorAll('[id$="Dropdown"]').forEach(dd => {
+        dd.classList.add('hidden');
+      });
+    }
+  });
+
+  // Set active menu item
+  function setActiveMenuItem(item) {
+    document.querySelectorAll('.menu-item-active').forEach(el => {
+      el.classList.remove('menu-item-active');
+    });
+    item.classList.add('menu-item-active');
+  }
+
+  // Initialize
+  document.addEventListener('DOMContentLoaded', function() {
+    // Set current time
+    function updateCurrentTime() {
+      const now = new Date();
+      const timeString = now.toLocaleTimeString('en-US', {
+        hour12: false,
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+      });
+      // You could add a time display element
+    }
+
+    updateCurrentTime();
+    setInterval(updateCurrentTime, 1000);
+
+    // Add click handlers to menu items
+    document.querySelectorAll('.menu-item:not(button)').forEach(item => {
+      item.addEventListener('click', function(e) {
+        if (!this.classList.contains('menu-item-active')) {
+          setActiveMenuItem(this);
+        }
+      });
+    });
+
+    console.log('Military Navigation initialized');
+  });
+</script>
+</body>
+</html>
