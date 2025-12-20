@@ -1,9 +1,11 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, OnInit, OnDestroy, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, RouterModule, NavigationEnd } from '@angular/router';
 import { Subscription, combineLatest } from 'rxjs';
-import { filter } from 'rxjs/operators';
+import { filter, map } from 'rxjs/operators';
+import { StateService } from './core/services/state.service';
 import { AuthService } from './core/services/auth.service';
+import { ThemeService } from './core/services/theme.service';
 
 // Import components
 import { HeaderComponent } from './core/layouts/header/header.component';
@@ -20,107 +22,97 @@ import { FooterComponent } from './core/layouts/footer/footer.component';
     SidebarComponent,
     FooterComponent
   ],
-  templateUrl: './app.html',
-  styleUrls: ['./app.scss']
+  templateUrl: './app.html'
 })
 export class App implements OnInit, OnDestroy {
-  layoutType: 'blank' | 'dashboard' = 'blank';
-  showHeader = false;
-  showSidebar = false;
-  showFooter = false;
-  sidebarCollapsed = false;
-  pageTitle = '';
-  currentUser: any = null;
-  userPermissions: string[] = [];
-  isLoading = false;
-  errorMessage: string | null = null;
+  // Services
+  private router = inject(Router);
+  private state = inject(StateService);
+  private authService = inject(AuthService);
+  private themeService = inject(ThemeService);
 
-  private routerSubscription: Subscription = new Subscription();
-  private authSubscriptions: Subscription[] = [];
+  // Reactive properties
+  sidebarCollapsed$ = this.themeService.sidebarCollapsed$;
 
-  constructor(
-    private router: Router,
-    private authService: AuthService
-  ) {}
+  // Layout observables
+  layoutType$ = combineLatest([
+    this.router.events.pipe(
+      filter(event => event instanceof NavigationEnd),
+      map(() => this.router.url)
+    ),
+    this.state.isAuthenticated$
+  ]).pipe(
+    map(([url, isAuthenticated]) => {
+      const blankLayoutRoutes = ['/login', '/register', '/forgot-password', '/reset-password', '/error'];
+      const isBlankLayout = blankLayoutRoutes.some(route => url.includes(route));
+      return isBlankLayout ? 'blank' : 'dashboard';
+    })
+  );
+
+  showHeader$ = combineLatest([this.layoutType$, this.state.isAuthenticated$]).pipe(
+    map(([layoutType, isAuthenticated]) =>
+      layoutType === 'dashboard' && isAuthenticated
+    )
+  );
+
+  showSidebar$ = true//this.showHeader$;
+
+  showFooter$ = combineLatest([
+    this.showHeader$,
+    this.router.events.pipe(
+      filter(event => event instanceof NavigationEnd),
+      map(() => this.router.url)
+    )
+  ]).pipe(
+    map(([showHeader, url]) => {
+      if (!showHeader) return false;
+      const noFooterRoutes = ['/dashboard/editor', '/dashboard/chat'];
+      return !noFooterRoutes.some(route => url.includes(route));
+    })
+  );
+
+  pageTitle$ = combineLatest([
+    this.router.events.pipe(
+      filter(event => event instanceof NavigationEnd)
+    )
+  ]).pipe(
+    map(() => {
+      const route = this.getCurrentActivatedRoute();
+      const url = this.router.url;
+      const titleMap: { [key: string]: string } = {
+        '/dashboard': 'Dashboard',
+        '/dashboard/users': 'User Management',
+        '/dashboard/settings': 'System Settings',
+        '/dashboard/analytics': 'Analytics',
+        '/dashboard/profile': 'My Profile'
+      };
+      return route?.snapshot.data['title'] || titleMap[url] || 'Admin Dashboard';
+    })
+  );
+
+  // Other observables
+  isLoading$ = this.state.isLoading$;
+  errorMessage$ = this.state.authState$.pipe(map(auth => auth.error));
+  currentUser$ = this.state.currentUser$;
+  userPermissions$ = this.currentUser$.pipe(
+    map(user => user?.permissions || [])
+  );
+
+  // Current route for sidebar
+  currentRoute$ = this.router.events.pipe(
+    filter(event => event instanceof NavigationEnd),
+    map(() => this.router.url)
+  );
+
+  private subscriptions: Subscription[] = [];
 
   ngOnInit(): void {
-    this.setupSubscriptions();
-    this.restoreSidebarState();
-  }
+    // Subscribe to update page title in state
+    const titleSub = this.pageTitle$.subscribe(title => {
+      this.state.setPageTitle(title);
+    });
 
-  private setupSubscriptions(): void {
-    // Router subscription
-    this.routerSubscription = this.router.events
-      .pipe(filter(event => event instanceof NavigationEnd))
-      .subscribe(() => {
-        this.updateLayoutBasedOnRoute();
-        this.updatePageTitle();
-      });
-
-    // Auth subscriptions
-    this.authSubscriptions.push(
-      this.authService.getCurrentUserObservable().subscribe(user => {
-        this.currentUser = user;
-        this.userPermissions = this.authService.getUserPermissions();
-      }),
-
-      this.authService.getLoadingState().subscribe(loading => {
-        this.isLoading = loading;
-      }),
-
-      this.authService.getError().subscribe(error => {
-        this.errorMessage = error;
-      }),
-
-      this.authService.getAuthStatus().subscribe(isAuthenticated => {
-        if (!isAuthenticated && this.layoutType === 'dashboard') {
-          // Auto-redirect to login if not authenticated on dashboard
-          this.router.navigate(['/login']);
-        }
-      })
-    );
-  }
-
-  private restoreSidebarState(): void {
-    const savedState = localStorage.getItem('sidebarCollapsed');
-    if (savedState) {
-      this.sidebarCollapsed = JSON.parse(savedState);
-    }
-  }
-
-  private updateLayoutBasedOnRoute(): void {
-    const currentRoute = this.router.url;
-
-    // Routes that use blank layout (no header/sidebar)
-    const blankLayoutRoutes = ['/login', '/register', '/forgot-password', '/reset-password', '/error'];
-
-    // Check if current route should use blank layout
-    const isBlankLayout = blankLayoutRoutes.some(route => currentRoute.includes(route));
-
-    this.layoutType = isBlankLayout ? 'blank' : 'dashboard';
-
-    // Show/hide layout components for dashboard layout
-    if (this.layoutType === 'dashboard') {
-      this.showHeader = true;
-      this.showSidebar = true;
-      this.showFooter = this.shouldShowFooter(currentRoute);
-    } else {
-      this.showHeader = false;
-      this.showSidebar = false;
-      this.showFooter = false;
-    }
-  }
-
-  private shouldShowFooter(route: string): boolean {
-    // Hide footer for specific routes
-    const noFooterRoutes = ['/dashboard/editor', '/dashboard/chat'];
-    return !noFooterRoutes.some(noFooterRoute => route.includes(noFooterRoute));
-  }
-
-  private updatePageTitle(): void {
-    // Extract title from route data or set default
-    const route = this.getCurrentActivatedRoute();
-    this.pageTitle = route?.snapshot.data['title'] || this.getDefaultTitle(this.router.url);
+    this.subscriptions.push(titleSub);
   }
 
   private getCurrentActivatedRoute(): any {
@@ -131,24 +123,8 @@ export class App implements OnInit, OnDestroy {
     return route;
   }
 
-  private getDefaultTitle(url: string): string {
-    const titleMap: { [key: string]: string } = {
-      '/dashboard': 'Dashboard',
-      '/dashboard/users': 'User Management',
-      '/dashboard/settings': 'System Settings',
-      '/dashboard/analytics': 'Analytics',
-      '/dashboard/profile': 'My Profile',
-      '/dashboard/reports': 'Reports',
-      '/dashboard/billing': 'Billing'
-    };
-
-    return titleMap[url] || 'Admin Dashboard';
-  }
-
   toggleSidebar(): void {
-    this.sidebarCollapsed = !this.sidebarCollapsed;
-    // Save preference to localStorage
-    localStorage.setItem('sidebarCollapsed', JSON.stringify(this.sidebarCollapsed));
+    //this.themeService.toggleSidebar();
   }
 
   logout(): void {
@@ -156,11 +132,10 @@ export class App implements OnInit, OnDestroy {
   }
 
   clearError(): void {
-    //this.authService.clearError();
+    this.state.updateAuthState({ error: null });
   }
 
   ngOnDestroy(): void {
-    this.routerSubscription.unsubscribe();
-    this.authSubscriptions.forEach(sub => sub.unsubscribe());
+    this.subscriptions.forEach(sub => sub.unsubscribe());
   }
 }

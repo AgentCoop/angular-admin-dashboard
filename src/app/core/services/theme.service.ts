@@ -1,13 +1,10 @@
-// src/app/core/services/theme.service.ts
-import { Injectable, Inject, PLATFORM_ID } from '@angular/core';
-import { isPlatformBrowser } from '@angular/common';
-import { BehaviorSubject } from 'rxjs';
-
+import { Injectable, Inject, Renderer2, RendererFactory2 } from '@angular/core';
+import { DOCUMENT } from '@angular/common';
+import { Observable, map } from 'rxjs';
+import { StateService } from './state.service';
 
 export type Theme = 'light' | 'dark';
-
-const DEFAULT_THEME: Theme = 'light';
-const STORAGE_KEY_THEME = 'military-theme';
+export type FontSize = 'sm' | 'md' | 'lg';
 
 const THEME_CLASSES: Record<Theme, string> = {
   light: 'light-theme',
@@ -18,47 +15,108 @@ const THEME_CLASSES: Record<Theme, string> = {
   providedIn: 'root',
 })
 export class ThemeService {
-  private readonly currentTheme$ = new BehaviorSubject<Theme>(DEFAULT_THEME);
-  readonly theme$ = this.currentTheme$.asObservable();
+  private renderer: Renderer2;
 
-  constructor(@Inject(PLATFORM_ID) private readonly platformId: Object) {
-    this.loadTheme();
+  constructor(
+    @Inject(DOCUMENT) private document: Document,
+    private rendererFactory: RendererFactory2,
+    private state: StateService
+  ) {
+    this.renderer = rendererFactory.createRenderer(null, null);
+    this.initializeTheme();
   }
 
-  private loadTheme(): void {
-    if (!isPlatformBrowser(this.platformId)) return;
-
-    const savedTheme =
-      (localStorage.getItem(STORAGE_KEY_THEME) as Theme) ?? DEFAULT_THEME;
-
-    this.setTheme(savedTheme);
+  private initializeTheme(): void {
+    // Apply initial theme from state
+    const initialTheme = this.state.currentTheme;
+    this.applyTheme(initialTheme);
   }
 
+  // Theme methods
   setTheme(theme: Theme): void {
-    this.currentTheme$.next(theme);
-
-    if (!isPlatformBrowser(this.platformId)) return;
-
-    this.updateBodyClass(theme);
-    localStorage.setItem(STORAGE_KEY_THEME, theme);
+    // Update state (which will persist to localStorage)
+    this.state.setTheme(theme);
+    this.applyTheme(theme);
   }
 
   toggleTheme(): void {
-    const nextTheme: Theme =
-      this.currentTheme$.value === 'light' ? 'dark' : 'light';
-
-    this.setTheme(nextTheme);
+    this.state.toggleTheme();
+    this.applyTheme(this.state.currentTheme);
   }
 
   getCurrentTheme(): Theme {
-    return this.currentTheme$.value;
+    return this.state.currentTheme;
   }
 
-  private updateBodyClass(theme: Theme): void {
+  get theme$(): Observable<Theme> {
+    return this.state.currentTheme$;
+  }
+
+  private applyTheme(theme: Theme): void {
+    const body = this.document.body;
+
+    // Remove existing theme classes
     Object.values(THEME_CLASSES).forEach(cssClass =>
-      document.body.classList.remove(cssClass)
+      this.renderer.removeClass(body, cssClass)
     );
 
-    document.body.classList.add(THEME_CLASSES[theme]);
+    // Add new theme class
+    this.renderer.addClass(body, THEME_CLASSES[theme]);
+
+    // Update theme color meta tag
+    this.updateThemeColorMeta(theme);
   }
+
+  private updateThemeColorMeta(theme: Theme): void {
+    const metaThemeColor = this.document.querySelector('meta[name="theme-color"]');
+    const colors = {
+      light: '#f5f5f0',
+      dark: '#121212'
+    };
+
+    if (metaThemeColor && colors[theme]) {
+      this.renderer.setAttribute(metaThemeColor, 'content', colors[theme]);
+    }
+  }
+
+  // Sidebar methods (delegated to StateService)
+  toggleSidebar(): void {
+    this.state.toggleSidebar();
+  }
+
+  setSidebarCollapsed(collapsed: boolean): void {
+    this.state.setSidebarCollapsed(collapsed);
+  }
+
+  getSidebarCollapsed(): boolean {
+    return this.state.isSidebarCollapsed;
+  }
+
+  get sidebarCollapsed$(): Observable<boolean> {
+    return this.state.sidebarCollapsed$;
+  }
+
+  // Font size methods
+  setFontSize(fontSize: FontSize): void {
+    this.state.setFontSize(fontSize);
+    this.applyFontSize(fontSize);
+  }
+
+  private applyFontSize(fontSize: FontSize): void {
+    const body = this.document.body;
+
+    // Remove existing font size classes
+    ['sm', 'md', 'lg'].forEach(size => {
+      this.renderer.removeClass(body, `font-size-${size}`);
+    });
+
+    // Add new font size class
+    this.renderer.addClass(body, `font-size-${fontSize}`);
+  }
+
+  // getFontSize(): FontSize {
+  //   return this.state.themeState$.pipe(
+  //     map(theme => theme.fontSize)
+  //   ) as Observable<FontSize>;
+  // }
 }

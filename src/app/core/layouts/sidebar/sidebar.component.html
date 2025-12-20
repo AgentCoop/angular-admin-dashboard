@@ -1,0 +1,432 @@
+<!-- Desktop Sidebar -->
+<aside [class]="collapsed ? 'sidebar collapsed' : 'sidebar'"
+       [class.hidden]="mobileMenuOpen"
+       [class.lg:flex]="!collapsed">
+
+  <!-- Header with Logo -->
+  <div class="sidebar-header">
+    <div class="logo-container">
+      <div class="logo-icon">
+        <i class="fas fa-shield-alt"></i>
+      </div>
+      <div class="logo-text" *ngIf="!collapsed">
+        <h1 class="logo-title">COMMAND CENTER</h1>
+        <p class="logo-subtitle">v2.1.4 • SECURE</p>
+      </div>
+    </div>
+
+    <!-- User Status -->
+    <div class="user-status" *ngIf="!collapsed">
+      <div class="user-info">
+        <div class="user-avatar">
+          <i class="fas fa-user"></i>
+        </div>
+        <div class="user-details">
+          <p class="user-name">{{ userStatus.name }}</p>
+          <p class="user-rank">{{ userStatus.rank }} • Level {{ userStatus.level }}</p>
+        </div>
+        <div class="status-dot" [class]="getStatusColor(userStatus.status)"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main Navigation Menu -->
+  <nav class="sidebar-nav">
+    <ul class="nav-menu">
+      <!-- Dashboard -->
+      <li class="nav-item">
+        <a class="nav-link"
+           [class.active]="isItemActive(menuItems[0])"
+           (click)="toggleMenuItem(menuItems[0])">
+          <i class="nav-icon" [class]="menuItems[0].icon"></i>
+          <span class="nav-text" *ngIf="!collapsed">{{ menuItems[0].title }}</span>
+          @if (menuItems[0].badge && !collapsed) {
+            <span class="nav-badge" [class]="getBadgeClasses(menuItems[0].badge!.type)">
+              {{ menuItems[0].badge!.text }}
+            </span>
+          }
+        </a>
+      </li>
+
+      <!-- Divider: Intelligence -->
+      @if (!collapsed) {
+        <li class="nav-divider">
+          <span>Intelligence</span>
+        </li>
+      }
+
+      <!-- Intelligence (with submenu) -->
+      <li class="nav-item" *ngIf="hasPermission(menuItems[1])">
+        <button class="nav-link"
+                [class.expanded]="menuItems[1].expanded"
+                [class.active]="isItemActive(menuItems[1])"
+                (click)="toggleMenuItem(menuItems[1])">
+          <i class="nav-icon" [class]="menuItems[1].icon"></i>
+          <span class="nav-text" *ngIf="!collapsed">{{ menuItems[1].title }}</span>
+          @if (menuItems[1].badge && !collapsed) {
+            <span class="nav-badge notification" [class]="getBadgeClasses(menuItems[1].badge!.type)">
+              {{ menuItems[1].badge!.text }}
+            </span>
+          }
+          @if (!collapsed) {
+            <i class="nav-arrow fas fa-chevron-down"></i>
+          }
+        </button>
+
+        <!-- Intelligence Submenu -->
+        @if (menuItems[1].expanded && !collapsed) {
+          <ul class="nav-submenu">
+            @for (child of menuItems[1].children; track child.title) {
+              @if (hasPermission(child)) {
+                <li class="nav-subitem">
+                  @if (child.children) {
+                    <button class="nav-sublink"
+                            [class.expanded]="child.expanded"
+                            (click)="toggleMenuItem(child)">
+                      <i class="nav-subicon" [class]="child.icon"></i>
+                      <span class="nav-subtext">{{ child.title }}</span>
+                      <i class="nav-subarrow fas fa-chevron-right"></i>
+                    </button>
+
+                    <!-- Nested Submenu -->
+                    @if (child.expanded) {
+                      <ul class="nav-nested-submenu">
+                        @for (nestedChild of child.children; track nestedChild.title) {
+                          @if (hasPermission(nestedChild)) {
+                            <li class="nav-nested-item">
+                              <a class="nav-nested-link"
+                                 [routerLink]="nestedChild.route"
+                                 routerLinkActive="active"
+                                 (click)="closeMobileMenu()">
+                                <i class="nav-nested-icon" [class]="nestedChild.icon"></i>
+                                <span class="nav-nested-text">{{ nestedChild.title }}</span>
+                              </a>
+                            </li>
+                          }
+                        }
+                      </ul>
+                    }
+                  } @else {
+                    <a class="nav-sublink"
+                       [routerLink]="child.route"
+                       routerLinkActive="active"
+                       (click)="closeMobileMenu()">
+                      <i class="nav-subicon" [class]="child.icon"></i>
+                      <span class="nav-subtext">{{ child.title }}</span>
+                    </a>
+                  }
+                </li>
+              }
+            }
+          </ul>
+        }
+      </li>
+
+      <!-- Operations -->
+      <li class="nav-item" *ngIf="hasPermission(menuItems[2])">
+        <button class="nav-link"
+                [class.expanded]="menuItems[2].expanded"
+                [class.active]="isItemActive(menuItems[2])"
+                (click)="toggleMenuItem(menuItems[2])">
+          <i class="nav-icon" [class]="menuItems[2].icon"></i>
+          <span class="nav-text" *ngIf="!collapsed">{{ menuItems[2].title }}</span>
+          @if (menuItems[2].badge && !collapsed) {
+            <span class="nav-badge" [class]="getBadgeClasses(menuItems[2].badge!.type)">
+              {{ menuItems[2].badge!.text }}
+            </span>
+          }
+          @if (!collapsed) {
+            <i class="nav-arrow fas fa-chevron-down"></i>
+          }
+        </button>
+
+        <!-- Operations Submenu -->
+        @if (menuItems[2].expanded && !collapsed) {
+          <ul class="nav-submenu">
+            @for (child of menuItems[2].children; track child.title) {
+              @if (hasPermission(child)) {
+                <li class="nav-subitem">
+                  <a class="nav-sublink"
+                     [routerLink]="child.route"
+                     routerLinkActive="active"
+                     (click)="closeMobileMenu()">
+                    <i class="nav-subicon" [class]="child.icon"></i>
+                    <span class="nav-subtext">{{ child.title }}</span>
+                  </a>
+                </li>
+              }
+            }
+          </ul>
+        }
+      </li>
+
+      <!-- Divider: Communications -->
+      @if (!collapsed) {
+        <li class="nav-divider">
+          <span>Communications</span>
+        </li>
+      }
+
+      <!-- Communications -->
+      <li class="nav-item">
+        <a class="nav-link"
+           [class.active]="isItemActive(menuItems[3])"
+           (click)="toggleMenuItem(menuItems[3])">
+          <i class="nav-icon" [class]="menuItems[3].icon"></i>
+          <span class="nav-text" *ngIf="!collapsed">{{ menuItems[3].title }}</span>
+          @if (menuItems[3].badge && !collapsed) {
+            <span class="nav-badge" [class]="getBadgeClasses(menuItems[3].badge!.type)">
+              {{ menuItems[3].badge!.text }}
+            </span>
+          }
+        </a>
+      </li>
+
+      <!-- Equipment -->
+      <li class="nav-item">
+        <button class="nav-link"
+                [class.expanded]="menuItems[4].expanded"
+                [class.active]="isItemActive(menuItems[4])"
+                (click)="toggleMenuItem(menuItems[4])">
+          <i class="nav-icon" [class]="menuItems[4].icon"></i>
+          <span class="nav-text" *ngIf="!collapsed">{{ menuItems[4].title }}</span>
+          @if (!collapsed) {
+            <i class="nav-arrow fas fa-chevron-down"></i>
+          }
+        </button>
+
+        <!-- Equipment Submenu -->
+        @if (menuItems[4].expanded && !collapsed) {
+          <ul class="nav-submenu">
+            @for (child of menuItems[4].children; track child.title) {
+              <li class="nav-subitem">
+                <a class="nav-sublink"
+                   [routerLink]="child.route"
+                   routerLinkActive="active"
+                   (click)="closeMobileMenu()">
+                  <i class="nav-subicon" [class]="child.icon"></i>
+                  <span class="nav-subtext">{{ child.title }}</span>
+                </a>
+              </li>
+            }
+          </ul>
+        }
+      </li>
+
+      <!-- Personnel -->
+      <li class="nav-item">
+        <a class="nav-link"
+           [class.active]="isItemActive(menuItems[5])"
+           (click)="toggleMenuItem(menuItems[5])">
+          <i class="nav-icon" [class]="menuItems[5].icon"></i>
+          <span class="nav-text" *ngIf="!collapsed">{{ menuItems[5].title }}</span>
+          @if (menuItems[5].badge && !collapsed) {
+            <span class="nav-badge" [class]="getBadgeClasses(menuItems[5].badge!.type)">
+              {{ menuItems[5].badge!.text }}
+            </span>
+          }
+        </a>
+      </li>
+
+      <!-- Divider: System -->
+      @if (!collapsed) {
+        <li class="nav-divider">
+          <span>System</span>
+        </li>
+      }
+
+      <!-- Settings -->
+      <li class="nav-item">
+        <a class="nav-link"
+           [class.active]="isItemActive(menuItems[6])"
+           (click)="toggleMenuItem(menuItems[6])">
+          <i class="nav-icon" [class]="menuItems[6].icon"></i>
+          <span class="nav-text" *ngIf="!collapsed">{{ menuItems[6].title }}</span>
+        </a>
+      </li>
+
+      <!-- Mission Logs -->
+      <li class="nav-item">
+        <a class="nav-link"
+           [class.active]="isItemActive(menuItems[7])"
+           (click)="toggleMenuItem(menuItems[7])">
+          <i class="nav-icon" [class]="menuItems[7].icon"></i>
+          <span class="nav-text" *ngIf="!collapsed">{{ menuItems[7].title }}</span>
+        </a>
+      </li>
+
+      <!-- Emergency Protocol -->
+      <li class="nav-item emergency">
+        <a class="nav-link emergency" (click)="onEmergencyProtocol()">
+          <i class="nav-icon" [class]="emergencyItem.icon"></i>
+          <span class="nav-text" *ngIf="!collapsed">{{ emergencyItem.title }}</span>
+        </a>
+      </li>
+    </ul>
+  </nav>
+
+  <!-- Footer -->
+  <div class="sidebar-footer" *ngIf="!collapsed">
+    <div class="system-status">
+      <div class="status-item">
+        <div class="status-dot bg-success-green"></div>
+        <span>System: ONLINE</span>
+      </div>
+      <div class="status-item">
+        Alert Level: <span class="alert-level">{{ systemStatus.alertLevel }}</span>
+      </div>
+    </div>
+    <button class="lock-button" (click)="onLockSystem()" title="Lock System">
+      <i class="fas fa-lock"></i>
+    </button>
+  </div>
+</aside>
+
+<!-- Mobile Header -->
+<header class="mobile-header lg:hidden">
+  <div class="mobile-header-content">
+    <button class="mobile-menu-toggle"
+            data-menu-toggle
+            (click)="toggleMobileMenu()"
+            aria-label="Toggle menu">
+      <i class="fas fa-bars"></i>
+    </button>
+
+    <div class="mobile-logo">
+      <div class="mobile-logo-icon">
+        <i class="fas fa-shield-alt"></i>
+      </div>
+      <h1 class="mobile-logo-title">COMMAND</h1>
+    </div>
+
+    <div class="mobile-controls">
+      <div class="notification-bell">
+        <i class="fas fa-bell"></i>
+        <span class="notification-dot"></span>
+      </div>
+      <div class="status-dot bg-success-green"></div>
+    </div>
+  </div>
+</header>
+
+<!-- Mobile Navigation Overlay -->
+<div id="mobileNav"
+     class="mobile-nav-overlay"
+     [class.open]="mobileMenuOpen"
+     (click)="closeMobileMenu()">
+
+  <!-- Mobile Menu -->
+  <div class="mobile-menu" (click)="$event.stopPropagation()">
+
+    <!-- Mobile Header -->
+    <div class="mobile-menu-header">
+      <div class="mobile-menu-logo">
+        <div class="mobile-menu-logo-icon">
+          <i class="fas fa-shield-alt"></i>
+        </div>
+        <div>
+          <h1 class="mobile-menu-title">COMMAND CENTER</h1>
+          <p class="mobile-menu-subtitle">v2.1.4 • SECURE</p>
+        </div>
+      </div>
+      <button class="mobile-menu-close" (click)="closeMobileMenu()">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+
+    <!-- User Status -->
+    <div class="mobile-user-status">
+      <div class="mobile-user-info">
+        <div class="mobile-user-avatar">
+          <i class="fas fa-user"></i>
+        </div>
+        <div class="mobile-user-details">
+          <p class="mobile-user-name">{{ userStatus.name }}</p>
+          <p class="mobile-user-rank">{{ userStatus.rank }} • Level {{ userStatus.level }}</p>
+        </div>
+        <div class="mobile-status-dot" [class]="getStatusColor(userStatus.status)"></div>
+      </div>
+    </div>
+
+    <!-- Mobile Navigation -->
+    <nav class="mobile-nav">
+      <ul class="mobile-nav-menu">
+        @for (item of menuItems.slice(0, 3); track item.title) {
+          @if (hasPermission(item)) {
+            <li class="mobile-nav-item">
+              <button class="mobile-nav-link"
+                      [class.expanded]="item.expanded"
+                      [class.active]="isItemActive(item)"
+                      (click)="toggleMenuItem(item)">
+                <i class="mobile-nav-icon" [class]="item.icon"></i>
+                <span class="mobile-nav-text">{{ item.title }}</span>
+                @if (item.badge) {
+                  <span class="mobile-nav-badge" [class]="getBadgeClasses(item.badge.type)">
+                    {{ item.badge.text }}
+                  </span>
+                }
+                @if (item.children) {
+                  <i class="mobile-nav-arrow fas fa-chevron-down"></i>
+                }
+              </button>
+
+              <!-- Mobile Submenu -->
+              @if (item.expanded && item.children) {
+                <ul class="mobile-nav-submenu">
+                  @for (child of item.children; track child.title) {
+                    @if (hasPermission(child)) {
+                      <li class="mobile-nav-subitem">
+                        @if (child.children) {
+                          <button class="mobile-nav-sublink"
+                                  [class.expanded]="child.expanded"
+                                  (click)="toggleMenuItem(child)">
+                            <i class="mobile-nav-subicon" [class]="child.icon"></i>
+                            <span class="mobile-nav-subtext">{{ child.title }}</span>
+                            <i class="mobile-nav-subarrow fas fa-chevron-right"></i>
+                          </button>
+
+                          <!-- Nested Mobile Submenu -->
+                          @if (child.expanded) {
+                            <ul class="mobile-nav-nested-submenu">
+                              @for (nestedChild of child.children; track nestedChild.title) {
+                                @if (hasPermission(nestedChild)) {
+                                  <li class="mobile-nav-nested-item">
+                                    <a class="mobile-nav-nested-link"
+                                       [routerLink]="nestedChild.route"
+                                       (click)="closeMobileMenu()">
+                                      <i class="mobile-nav-nested-icon" [class]="nestedChild.icon"></i>
+                                      <span class="mobile-nav-nested-text">{{ nestedChild.title }}</span>
+                                    </a>
+                                  </li>
+                                }
+                              }
+                            </ul>
+                          }
+                        } @else {
+                          <a class="mobile-nav-sublink"
+                             [routerLink]="child.route"
+                             (click)="closeMobileMenu()">
+                            <i class="mobile-nav-subicon" [class]="child.icon"></i>
+                            <span class="mobile-nav-subtext">{{ child.title }}</span>
+                          </a>
+                        }
+                      </li>
+                    }
+                  }
+                </ul>
+              }
+            </li>
+          }
+        }
+
+        <!-- Emergency Protocol (Mobile) -->
+        <li class="mobile-nav-item emergency">
+          <a class="mobile-nav-link emergency" (click)="onEmergencyProtocol()">
+            <i class="mobile-nav-icon" [class]="emergencyItem.icon"></i>
+            <span class="mobile-nav-text">{{ emergencyItem.title }}</span>
+          </a>
+        </li>
+      </ul>
+    </nav>
+  </div>
+</div>

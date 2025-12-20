@@ -1,66 +1,78 @@
 <!-- Root Application Container -->
-<div class="app-root" [class.sidebar-collapsed]="sidebarCollapsed">
-
+<div class="app-root" [class.sidebar-collapsed]="sidebarCollapsed$ | async">
+ваы ваыфафыаыфав
   <!-- Error Message Toast -->
-  <div *ngIf="errorMessage"
-       class="fixed top-4 right-4 z-50 max-w-md bg-alert-red text-military-white p-4 rounded-military-md shadow-military-lg flex items-center justify-between">
-    <div class="flex items-center gap-3">
-      <i class="fas fa-exclamation-circle"></i>
-      <span>{{ errorMessage }}</span>
+  @if (errorMessage$ | async; as errorMessage) {
+    <div class="fixed top-4 right-4 z-50 max-w-md bg-alert-red text-military-white p-4 rounded-military-md shadow-military-lg flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <i class="fas fa-exclamation-circle"></i>
+        <span>{{ errorMessage }}</span>
+      </div>
+      <button
+        (click)="clearError()"
+        class="text-military-white hover:text-camo-sand ml-4"
+      >
+        <i class="fas fa-times"></i>
+      </button>
     </div>
-    <button
-      (click)="clearError()"
-      class="text-military-white hover:text-camo-sand ml-4"
-    >
-      <i class="fas fa-times"></i>
-    </button>
-  </div>
+  }
 
   <!-- Layout Selector -->
-  <ng-container [ngSwitch]="layoutType">
+  @switch (layoutType$ | async) {
+    @case ('blank') {
+      <div class="layout-blank">
+        <router-outlet></router-outlet>
+      </div>
+    }
 
-    <!-- BLANK LAYOUT: For authentication pages -->
-    <div *ngSwitchCase="'blank'" class="layout-blank">
-      <router-outlet></router-outlet>
-    </div>
+    @case ('dashboard') {
+      <div class="layout-dashboard">
 
-    <!-- DASHBOARD LAYOUT: Main application -->
-    <div *ngSwitchCase="'dashboard'" class="layout-dashboard">
+<!--        @if (showHeader$ | async) {-->
+<!--          <app-header-->
+<!--            [sidebarCollapsed]="sidebarCollapsed$ | async"-->
+<!--            [currentUser]="currentUser$ | async"-->
+<!--            (toggleSidebar)="toggleSidebar()"-->
+<!--            (logout)="logout()">-->
+<!--          </app-header>-->
+<!--        }-->
 
-      <!-- App Header Component -->
+        <app-sidebar>
+        </app-sidebar>
 
-      <!-- App Sidebar Component -->
+<!--        <main class="app-main" [class.with-sidebar]="showSidebar$ | async">-->
+<!--          <div class="main-container">-->
+<!--            @if (pageTitle$ | async; as pageTitle) {-->
+<!--              <div class="page-header">-->
+<!--                <h1 class="page-title">{{ pageTitle }}</h1>-->
+<!--                <div class="page-actions">-->
+<!--                  <ng-content select="[page-actions]"></ng-content>-->
+<!--                </div>-->
+<!--              </div>-->
+<!--            }-->
 
-      <!-- Main Content Area -->
-      <main class="app-main" [class.with-sidebar]="showSidebar">
-        <div class="main-container">
-          <!-- Page Title -->
-          <div class="page-header" *ngIf="pageTitle">
-            <h1 class="page-title">{{ pageTitle }}</h1>
-            <div class="page-actions" *ngIf="pageActions">
-              <ng-container *ngTemplateOutlet="pageActions"></ng-container>
-            </div>
-          </div>
+<!--            <div class="page-content">-->
+<!--              <router-outlet></router-outlet>-->
+<!--            </div>-->
+<!--          </div>-->
+<!--        </main>-->
 
-          <!-- Router Outlet for Page Content -->
-          <div class="page-content">
-            <router-outlet></router-outlet>
-          </div>
-        </div>
-      </main>
-
-      <!-- App Footer Component -->
-      <app-footer *ngIf="showFooter"></app-footer>
-    </div>
-  </ng-container>
+        @if (showFooter$ | async) {
+          <app-footer></app-footer>
+        }
+      </div>
+    }
+  }
 
   <!-- Global Loading Overlay -->
-  <div *ngIf="isLoading" class="global-loading">
-    <div class="loading-spinner">
-      <div class="spinner"></div>
-      <p class="mt-4 text-sm font-mono">Loading...</p>
+  @if (isLoading$ | async) {
+    <div class="global-loading">
+      <div class="loading-spinner">
+        <div class="spinner"></div>
+        <p class="mt-4 text-sm font-mono">Loading...</p>
+      </div>
     </div>
-  </div>
+  }
 
   <!-- Toast Container -->
   <div class="toast-container"></div>
@@ -68,7 +80,3 @@
   <!-- Modal Container -->
   <div class="modal-container"></div>
 </div>
-
-<ng-template #pageActions>
-  <!-- Default empty actions template -->
-</ng-template>
