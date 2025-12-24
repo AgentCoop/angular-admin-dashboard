@@ -40,30 +40,32 @@
         <app-sidebar>
         </app-sidebar>
 
-        <panel>
-          Hello, World!
-        </panel>
+        <main class="app-main" [class.with-sidebar]="">
+          <div class="main-container">
+            @if (pageTitle$ | async; as pageTitle) {
+              <div class="page-header">
+                <h1 class="page-title">{{ pageTitle }}</h1>
+                <div class="page-actions">
+                  <ng-content select="[page-actions]"></ng-content>
+                </div>
+              </div>
+            }
 
-<!--        <main class="app-main" [class.with-sidebar]="showSidebar$ | async">-->
-<!--          <div class="main-container">-->
-<!--            @if (pageTitle$ | async; as pageTitle) {-->
-<!--              <div class="page-header">-->
-<!--                <h1 class="page-title">{{ pageTitle }}</h1>-->
-<!--                <div class="page-actions">-->
-<!--                  <ng-content select="[page-actions]"></ng-content>-->
-<!--                </div>-->
-<!--              </div>-->
-<!--            }-->
+            <div class="page-content">
+              <router-outlet></router-outlet>
 
-<!--            <div class="page-content">-->
-<!--              <router-outlet></router-outlet>-->
-<!--            </div>-->
-<!--          </div>-->
-<!--        </main>-->
 
-        @if (showFooter$ | async) {
+              <panel>
+                Hello, World!
+              </panel>
+
+            </div>
+          </div>
+        </main>
+
+<!--        @if (showFooter$ | async) {-->
           <app-footer></app-footer>
-        }
+<!--        }-->
       </div>
     }
   }
