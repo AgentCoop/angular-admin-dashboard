@@ -1,55 +1,97 @@
-import { Injectable, Inject, Renderer2, RendererFactory2 } from '@angular/core';
+import { Injectable, Inject, Renderer2, RendererFactory2, OnDestroy } from '@angular/core';
 import { DOCUMENT } from '@angular/common';
-import { Observable, map } from 'rxjs';
-import { StateService } from './state.service';
+import { Observable, Subscription } from 'rxjs';
+import { NamespacedStateService } from './state/namespaced-state.service';
+import { UnifiedStateService } from './state/unified-state.service';
 
 export type Theme = 'light' | 'dark';
 export type FontSize = 'sm' | 'md' | 'lg';
+
+export interface ThemeState {
+  theme: Theme;
+  fontSize: FontSize;
+  sidebarCollapsed: boolean;
+}
+
+const INITIAL_THEME_STATE: ThemeState = {
+  theme: 'light',
+  fontSize: 'md',
+  sidebarCollapsed: false
+};
 
 const THEME_CLASSES: Record<Theme, string> = {
   light: 'light-theme',
   dark: 'dark-theme',
 };
 
+const THEME_COLORS: Record<Theme, string> = {
+  light: '#f5f5f0',
+  dark: '#121212'
+};
+
 @Injectable({
   providedIn: 'root',
 })
-export class ThemeService {
+export class ThemeService extends NamespacedStateService<ThemeState> implements OnDestroy {
   private renderer: Renderer2;
+  private themeSubscription: Subscription;
 
   constructor(
     @Inject(DOCUMENT) private document: Document,
     private rendererFactory: RendererFactory2,
-    private state: StateService
+    stateService: UnifiedStateService
   ) {
+    // Pass namespace and initialState via super() call
+    super(stateService, 'theme', INITIAL_THEME_STATE);
+
     this.renderer = rendererFactory.createRenderer(null, null);
-    this.initializeTheme();
+
+    // Subscribe to theme changes to apply CSS classes reactively
+    this.themeSubscription = this.select(state => state.theme).subscribe(theme => {
+      this.applyTheme(theme);
+    });
+
+    // Subscribe to font size changes
+    this.subscriptions.push(
+      this.select(state => state.fontSize).subscribe(fontSize => {
+        this.applyFontSize(fontSize);
+      })
+    );
+
+    // Apply initial theme
+    this.applyInitialTheme();
   }
 
-  private initializeTheme(): void {
-    // Apply initial theme from state
-    const initialTheme = this.state.currentTheme;
-    this.applyTheme(initialTheme);
+  override ngOnDestroy(): void {
+    super.ngOnDestroy();
+    this.themeSubscription?.unsubscribe();
   }
+
+  private applyInitialTheme(): void {
+    const state = this.getState();
+    this.applyTheme(state.theme);
+    this.applyFontSize(state.fontSize);
+  }
+
+  // ============ PUBLIC API ============
 
   // Theme methods
   setTheme(theme: Theme): void {
-    // Update state (which will persist to localStorage)
-    this.state.setTheme(theme);
-    this.applyTheme(theme);
+    this.patchState({ theme });
   }
 
   toggleTheme(): void {
-    this.state.toggleTheme();
-    this.applyTheme(this.state.currentTheme);
+    const currentTheme = this.getState().theme;
+    const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+    this.setTheme(newTheme);
   }
 
   getCurrentTheme(): Theme {
-    return this.state.currentTheme;
+    return this.getState().theme;
   }
 
   get theme$(): Observable<Theme> {
-    return this.state.currentTheme$;
+    return this.select(state => state.theme);
   }
 
   private applyTheme(theme: Theme): void {
@@ -69,37 +111,34 @@ export class ThemeService {
 
   private updateThemeColorMeta(theme: Theme): void {
     const metaThemeColor = this.document.querySelector('meta[name="theme-color"]');
-    const colors = {
-      light: '#f5f5f0',
-      dark: '#121212'
-    };
+    const color = THEME_COLORS[theme];
 
-    if (metaThemeColor && colors[theme]) {
-      this.renderer.setAttribute(metaThemeColor, 'content', colors[theme]);
+    if (metaThemeColor && color) {
+      this.renderer.setAttribute(metaThemeColor, 'content', color);
     }
   }
 
-  // Sidebar methods (delegated to StateService)
+  // Sidebar methods
   toggleSidebar(): void {
-    this.state.toggleSidebar();
+    const currentState = this.getState();
+    this.patchState({ sidebarCollapsed: !currentState.sidebarCollapsed });
   }
 
   setSidebarCollapsed(collapsed: boolean): void {
-    this.state.setSidebarCollapsed(collapsed);
+    this.patchState({ sidebarCollapsed: collapsed });
   }
 
   getSidebarCollapsed(): boolean {
-    return this.state.isSidebarCollapsed;
+    return this.getState().sidebarCollapsed;
   }
 
   get sidebarCollapsed$(): Observable<boolean> {
-    return this.state.sidebarCollapsed$;
+    return this.select(state => state.sidebarCollapsed);
   }
 
   // Font size methods
   setFontSize(fontSize: FontSize): void {
-    this.state.setFontSize(fontSize);
-    this.applyFontSize(fontSize);
+    this.patchState({ fontSize });
   }
 
   private applyFontSize(fontSize: FontSize): void {
@@ -114,9 +153,8 @@ export class ThemeService {
     this.renderer.addClass(body, `font-size-${fontSize}`);
   }
 
-  // getFontSize(): FontSize {
-  //   return this.state.themeState$.pipe(
-  //     map(theme => theme.fontSize)
-  //   ) as Observable<FontSize>;
-  // }
+  // Optionally add a getter for fontSize observable
+  get fontSize$(): Observable<FontSize> {
+    return this.select(state => state.fontSize);
+  }
 }

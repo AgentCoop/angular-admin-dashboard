@@ -16,7 +16,7 @@ export interface StateConfig<T = any> {
 }
 
 @Injectable({ providedIn: 'root' })
-export class UnifiedService implements OnDestroy {
+export class UnifiedStateService implements OnDestroy {
   private readonly ROOT_STORAGE_KEY = 'app_state_v1';
   private state$: BehaviorSubject<UnifiedState>;
   private persistSubscription: Subscription;

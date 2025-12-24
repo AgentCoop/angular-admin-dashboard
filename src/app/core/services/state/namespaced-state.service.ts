@@ -1,17 +1,15 @@
 import { Injectable, OnDestroy } from '@angular/core';
 import { Observable, Subscription } from 'rxjs';
-import { UnifiedService } from './unified.service';
+import { UnifiedStateService } from './unified-state.service';
 
 @Injectable()
 export abstract class NamespacedStateService<T> implements OnDestroy {
-  // Make these protected properties (not abstract)
   protected readonly namespace: string;
   protected readonly initialState: T;
-
   protected subscriptions: Subscription[] = [];
 
   constructor(
-    protected stateService: UnifiedService,
+    protected stateService: UnifiedStateService,
     namespace: string,
     initialState: T
   ) {
