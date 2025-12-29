@@ -1,9 +1,9 @@
 // Import Tailwind CSS
 @use "tailwindcss";
 
-// Custom military theme variables using @theme directive [citation:3]
+// Custom military theme variables using @theme directive
 @theme {
-  // Color palette
+  // Light theme color palette
   --color-camo-sand: #d4c9a8;
   --color-camo-tan: #c2b280;
   --color-camo-olive: #8b8b6c;
@@ -18,76 +18,840 @@
   --color-alert-orange: #d18c5a;
   --color-success-green: #5a8c6c;
 
+  // Dark theme color palette
+  --color-camo-sand-dark: #5a5543;
+  --color-camo-tan-dark: #4a4535;
+  --color-camo-olive-dark: #3a3a2d;
+  --color-camo-gray-dark: #6a6a5a;
+  --color-camo-dark-dark: #2a2a23;
+  --color-steel-blue-dark: #3a5d7a;
+  --color-field-green-dark: #5d6c5a;
+  --color-desert-tan-dark: #4a4538;
+  --color-military-white-dark: #1a1a15;
+  --color-military-black-dark: #f0f0e0;
+  --color-alert-red-dark: #9a4242;
+  --color-alert-orange-dark: #b1744a;
+  --color-success-green-dark: #4a6c5a;
+
   // Font families
-  --font-sans: Arial, Helvetica, sans-serif;
-  --font-mono: 'Courier New', monospace;
+  --font-sans: 'Segoe UI', 'Arial', 'Helvetica', sans-serif;
+  --font-mono: 'Courier New', 'Consolas', monospace;
+
+  // Typography scale
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-base: 1rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.25rem;
+  --text-2xl: 1.5rem;
+  --text-3xl: 1.875rem;
 
   // Border radius
   --radius-military-sm: 3px;
   --radius-military-md: 5px;
   --radius-military-lg: 8px;
+  --radius-military-xl: 12px;
 
   // Box shadows
   --shadow-military-sm: 0 2px 4px rgba(58, 58, 53, 0.1);
   --shadow-military-md: 0 4px 8px rgba(58, 58, 53, 0.15);
   --shadow-military-lg: 0 8px 16px rgba(58, 58, 53, 0.2);
+  --shadow-military-xl: 0 12px 24px rgba(58, 58, 53, 0.25);
+
+  // Transitions
+  --transition-military: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-military-slow: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+
+  // Spacing
+  --spacing-military: 0.25rem;
+  --spacing-military-md: 0.5rem;
+  --spacing-military-lg: 1rem;
+  --spacing-military-xl: 1.5rem;
+
+  // Breakpoints
+  --breakpoint-mobile: 640px;
+  --breakpoint-tablet: 768px;
+  --breakpoint-desktop: 1024px;
+  --breakpoint-wide: 1280px;
+}
+
+// CSS Custom Properties for theme switching
+:root {
+  // Light theme (default)
+  --color-background-primary: var(--color-military-white);
+  --color-background-secondary: #ffffff;
+  --color-background-tertiary: var(--color-desert-tan);
+  --color-background-panel: #ffffff;
+
+  --color-text-primary: var(--color-military-black);
+  --color-text-secondary: var(--color-camo-dark);
+  --color-text-tertiary: var(--color-camo-olive);
+  --color-text-inverted: var(--color-military-white);
+
+  --color-border-primary: var(--color-camo-tan);
+  --color-border-secondary: var(--color-camo-sand);
+  --color-border-accent: var(--color-steel-blue);
+
+  --color-icon-primary: var(--color-steel-blue);
+  --color-icon-secondary: var(--color-camo-olive);
+  --color-icon-tertiary: var(--color-camo-gray);
+
+  --color-button-primary: var(--color-steel-blue);
+  --color-button-primary-hover: #4a6d8a;
+  --color-button-secondary: var(--color-camo-tan);
+  --color-button-secondary-hover: #b2a270;
+
+  --color-badge-info: var(--color-steel-blue);
+  --color-badge-success: var(--color-success-green);
+  --color-badge-warning: var(--color-alert-orange);
+  --color-badge-danger: var(--color-alert-red);
+  --color-badge-default: var(--color-camo-dark);
+
+  --color-grid-line: rgba(212, 201, 168, 0.1);
+  --color-shadow: rgba(58, 58, 53, 0.15);
+
+  --sidebar-width: 16rem;
+  --sidebar-width-collapsed: 4rem;
+
+  --z-index-sidebar: 40;
+  --z-index-header: 50;
+  --z-index-modal: 100;
+  --z-index-toast: 200;
+}
+
+:root[data-theme="dark"] {
+  // Dark theme
+  --color-background-primary: var(--color-military-white-dark);
+  --color-background-secondary: var(--color-camo-dark-dark);
+  --color-background-tertiary: var(--color-desert-tan-dark);
+  --color-background-panel: var(--color-camo-olive-dark);
+
+  --color-text-primary: var(--color-military-black-dark);
+  --color-text-secondary: #d0d0c0;
+  --color-text-tertiary: #b0b0a0;
+  --color-text-inverted: var(--color-military-black);
+
+  --color-border-primary: var(--color-camo-tan-dark);
+  --color-border-secondary: var(--color-camo-sand-dark);
+  --color-border-accent: var(--color-steel-blue-dark);
+
+  --color-icon-primary: var(--color-steel-blue-dark);
+  --color-icon-secondary: var(--color-camo-gray-dark);
+  --color-icon-tertiary: #8a8a7a;
+
+  --color-button-primary: var(--color-steel-blue-dark);
+  --color-button-primary-hover: #2a4d6a;
+  --color-button-secondary: var(--color-camo-tan-dark);
+  --color-button-secondary-hover: #3a3525;
+
+  --color-badge-info: var(--color-steel-blue-dark);
+  --color-badge-success: var(--color-success-green-dark);
+  --color-badge-warning: var(--color-alert-orange-dark);
+  --color-badge-danger: var(--color-alert-red-dark);
+  --color-badge-default: var(--color-camo-gray-dark);
+
+  --color-grid-line: rgba(90, 85, 67, 0.1);
+  --color-shadow: rgba(10, 10, 8, 0.25);
+
+  // Dark theme shadows are more subtle
+  --shadow-military-sm: 0 2px 4px rgba(10, 10, 8, 0.3);
+  --shadow-military-md: 0 4px 8px rgba(10, 10, 8, 0.35);
+  --shadow-military-lg: 0 8px 16px rgba(10, 10, 8, 0.4);
 }
 
 // Global military styles
 @layer base {
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
   html {
     font-family: var(--font-sans);
-    background: var(--color-military-white);
-    color: var(--color-military-black);
+    background-color: var(--color-background-primary);
+    color: var(--color-text-primary);
+    transition: background-color 0.3s ease, color 0.3s ease;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 
   body {
     margin: 0;
     min-height: 100vh;
+    line-height: 1.5;
+    overflow-x: hidden;
+  }
+
+  // Typography
+  h1, h2, h3, h4, h5, h6 {
+    font-weight: 600;
+    line-height: 1.25;
+    margin-top: 0;
+    color: var(--color-text-primary);
+  }
+
+  h1 {
+    font-size: var(--text-3xl);
+  }
+
+  h2 {
+    font-size: var(--text-2xl);
+  }
+
+  h3 {
+    font-size: var(--text-xl);
+  }
+
+  p {
+    margin-top: 0;
+    margin-bottom: var(--spacing-military-lg);
+    color: var(--color-text-secondary);
+  }
+
+  a {
+    color: var(--color-steel-blue);
+    text-decoration: none;
+    transition: color var(--transition-military);
+
+    &:hover {
+      color: var(--color-steel-blue-dark);
+      text-decoration: underline;
+    }
   }
 
   // Military-themed scrollbar
   ::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
+    width: 10px;
+    height: 10px;
   }
 
   ::-webkit-scrollbar-track {
-    background: var(--color-camo-tan);
+    background: var(--color-background-tertiary);
     border-radius: var(--radius-military-sm);
   }
 
   ::-webkit-scrollbar-thumb {
     background: var(--color-camo-olive);
     border-radius: var(--radius-military-sm);
+    border: 2px solid var(--color-background-tertiary);
   }
 
   ::-webkit-scrollbar-thumb:hover {
     background: var(--color-camo-dark);
+  }
+
+  :root[data-theme="dark"] ::-webkit-scrollbar-track {
+    background: var(--color-camo-dark-dark);
+  }
+
+  :root[data-theme="dark"] ::-webkit-scrollbar-thumb {
+    background: var(--color-camo-gray-dark);
+  }
+
+  :root[data-theme="dark"] ::-webkit-scrollbar-thumb:hover {
+    background: var(--color-camo-olive-dark);
+  }
+
+  // Selection color
+  ::selection {
+    background-color: var(--color-steel-blue);
+    color: white;
+  }
+
+  :root[data-theme="dark"] ::selection {
+    background-color: var(--color-steel-blue-dark);
+    color: var(--color-military-black-dark);
+  }
+
+  // Focus styles
+  :focus-visible {
+    outline: 2px solid var(--color-steel-blue);
+    outline-offset: 2px;
+  }
+
+  // Code and pre elements
+  code {
+    font-family: var(--font-mono);
+    background-color: var(--color-background-tertiary);
+    padding: 0.125rem 0.25rem;
+    border-radius: var(--radius-military-sm);
+    font-size: 0.875em;
+    color: var(--color-text-primary);
+  }
+
+  pre {
+    font-family: var(--font-mono);
+    background-color: var(--color-background-tertiary);
+    padding: var(--spacing-military-lg);
+    border-radius: var(--radius-military-md);
+    overflow-x: auto;
+    border: 1px solid var(--color-border-primary);
   }
 }
 
 // Custom utility classes
 @layer utilities {
   .military-panel {
-    @apply bg-gradient-to-r from-camo-tan via-steel-blue to-field-green;
-    border: 1px solid var(--color-camo-dark);
+    background-color: var(--color-background-panel);
+    border: 1px solid var(--color-border-primary);
+    border-radius: var(--radius-military-md);
     box-shadow: var(--shadow-military-md);
+    transition: all var(--transition-military);
   }
 
   .military-grid-bg {
-    background-image: linear-gradient(rgba(212, 201, 168, 0.1) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(212, 201, 168, 0.1) 1px, transparent 1px);
+    background-image:
+      linear-gradient(var(--color-grid-line) 1px, transparent 1px),
+      linear-gradient(90deg, var(--color-grid-line) 1px, transparent 1px);
     background-size: 20px 20px;
   }
 
   .alert-panel {
     border-left: 4px solid var(--color-alert-red);
     background: linear-gradient(90deg, rgba(184, 82, 82, 0.1), transparent);
+    background-color: var(--color-background-panel);
   }
 
   .success-panel {
     border-left: 4px solid var(--color-success-green);
     background: linear-gradient(90deg, rgba(90, 140, 108, 0.1), transparent);
+    background-color: var(--color-background-panel);
+  }
+
+  .warning-panel {
+    border-left: 4px solid var(--color-alert-orange);
+    background: linear-gradient(90deg, rgba(209, 140, 90, 0.1), transparent);
+    background-color: var(--color-background-panel);
+  }
+
+  .info-panel {
+    border-left: 4px solid var(--color-steel-blue);
+    background: linear-gradient(90deg, rgba(90, 125, 154, 0.1), transparent);
+    background-color: var(--color-background-panel);
+  }
+
+  // Status indicators
+  .status-indicator {
+    display: inline-block;
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 50%;
+
+    &.status-online {
+      background-color: var(--color-success-green);
+      animation: pulse 2s infinite;
+    }
+
+    &.status-offline {
+      background-color: var(--color-alert-red);
+    }
+
+    &.status-warning {
+      background-color: var(--color-alert-orange);
+      animation: pulse 1.5s infinite;
+    }
+
+    &.status-idle {
+      background-color: var(--color-camo-gray);
+    }
+  }
+
+  // Badge variants
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.125rem 0.5rem;
+    border-radius: var(--radius-military-sm);
+    font-size: var(--text-xs);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.025em;
+    white-space: nowrap;
+
+    &.badge-info {
+      background-color: rgba(90, 125, 154, 0.1);
+      color: var(--color-steel-blue);
+    }
+
+    &.badge-success {
+      background-color: rgba(90, 140, 108, 0.1);
+      color: var(--color-success-green);
+    }
+
+    &.badge-warning {
+      background-color: rgba(209, 140, 90, 0.1);
+      color: var(--color-alert-orange);
+    }
+
+    &.badge-danger {
+      background-color: rgba(184, 82, 82, 0.1);
+      color: var(--color-alert-red);
+    }
+
+    &.badge-default {
+      background-color: rgba(108, 108, 92, 0.1);
+      color: var(--color-camo-dark);
+    }
+  }
+
+  // Button variants
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.5rem 1rem;
+    border-radius: var(--radius-military-md);
+    font-weight: 500;
+    font-size: var(--text-sm);
+    transition: all var(--transition-military);
+    border: 1px solid transparent;
+    cursor: pointer;
+    gap: 0.5rem;
+
+    &:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    &.btn-primary {
+      background-color: var(--color-button-primary);
+      color: white;
+
+      &:hover:not(:disabled) {
+        background-color: var(--color-button-primary-hover);
+      }
+    }
+
+    &.btn-secondary {
+      background-color: var(--color-button-secondary);
+      color: var(--color-text-primary);
+
+      &:hover:not(:disabled) {
+        background-color: var(--color-button-secondary-hover);
+      }
+    }
+
+    &.btn-outline {
+      background-color: transparent;
+      border-color: var(--color-border-primary);
+      color: var(--color-text-primary);
+
+      &:hover:not(:disabled) {
+        background-color: var(--color-background-tertiary);
+      }
+    }
+
+    &.btn-ghost {
+      background-color: transparent;
+      color: var(--color-text-primary);
+
+      &:hover:not(:disabled) {
+        background-color: var(--color-background-tertiary);
+      }
+    }
+
+    &.btn-danger {
+      background-color: var(--color-alert-red);
+      color: white;
+
+      &:hover:not(:disabled) {
+        background-color: #9a4242;
+      }
+    }
+  }
+
+  // Form elements
+  .form-input {
+    width: 100%;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--color-border-primary);
+    border-radius: var(--radius-military-md);
+    background-color: var(--color-background-secondary);
+    color: var(--color-text-primary);
+    font-size: var(--text-sm);
+    transition: border-color var(--transition-military), box-shadow var(--transition-military);
+
+    &:focus {
+      outline: none;
+      border-color: var(--color-steel-blue);
+      box-shadow: 0 0 0 3px rgba(90, 125, 154, 0.1);
+    }
+
+    &::placeholder {
+      color: var(--color-camo-gray);
+    }
+  }
+
+  .form-label {
+    display: block;
+    font-size: var(--text-sm);
+    font-weight: 500;
+    color: var(--color-text-secondary);
+    margin-bottom: 0.25rem;
+  }
+
+  // Card styles
+  .card {
+    background-color: var(--color-background-panel);
+    border: 1px solid var(--color-border-primary);
+    border-radius: var(--radius-military-lg);
+    box-shadow: var(--shadow-military-sm);
+    transition: all var(--transition-military);
+
+    &:hover {
+      box-shadow: var(--shadow-military-md);
+      transform: translateY(-1px);
+    }
+
+    .card-header {
+      padding: var(--spacing-military-lg);
+      border-bottom: 1px solid var(--color-border-secondary);
+    }
+
+    .card-body {
+      padding: var(--spacing-military-lg);
+    }
+
+    .card-footer {
+      padding: var(--spacing-military-lg);
+      border-top: 1px solid var(--color-border-secondary);
+    }
+  }
+
+  // Layout utilities
+  .sidebar-layout {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    min-height: 100vh;
+
+    .sidebar {
+      width: var(--sidebar-width);
+      transition: width var(--transition-military-slow);
+
+      &.collapsed {
+        width: var(--sidebar-width-collapsed);
+      }
+    }
+
+    .main-content {
+      overflow-x: hidden;
+    }
+
+    @media (max-width: 1023px) {
+      grid-template-columns: 1fr;
+
+      .sidebar {
+        position: fixed;
+        left: 0;
+        top: 0;
+        height: 100vh;
+        z-index: var(--z-index-sidebar);
+        transform: translateX(-100%);
+        transition: transform var(--transition-military-slow);
+
+        &.mobile-open {
+          transform: translateX(0);
+        }
+      }
+    }
+  }
+
+  // Typography utilities
+  .text-military {
+    font-family: var(--font-sans);
+    font-weight: 600;
+    letter-spacing: 0.025em;
+  }
+
+  .text-code {
+    font-family: var(--font-mono);
+    font-size: 0.875em;
+  }
+
+  // Animation keyframes
+  @keyframes pulse {
+    0%, 100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.5;
+    }
+  }
+
+  @keyframes slide-down {
+    from {
+      opacity: 0;
+      transform: translateY(-10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes slide-up {
+    from {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    to {
+      opacity: 0;
+      transform: translateY(-10px);
+    }
+  }
+
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes slide-in-right {
+    from {
+      transform: translateX(100%);
+    }
+    to {
+      transform: translateX(0);
+    }
+  }
+
+  // Animation utilities
+  .animate-pulse {
+    animation: pulse 2s infinite;
+  }
+
+  .animate-slide-down {
+    animation: slide-down 0.3s ease-out;
+  }
+
+  .animate-slide-up {
+    animation: slide-up 0.3s ease-out;
+  }
+
+  .animate-fade-in {
+    animation: fade-in 0.3s ease-out;
+  }
+
+  .animate-slide-in-right {
+    animation: slide-in-right 0.3s ease-out;
+  }
+
+  // Theme transition
+  .theme-transition {
+    transition: background-color 0.3s ease,
+    color 0.3s ease,
+    border-color 0.3s ease,
+    box-shadow 0.3s ease;
+  }
+
+  // Military background patterns
+  .bg-military-camo {
+    background:
+      linear-gradient(45deg, var(--color-camo-olive) 25%, transparent 25%),
+      linear-gradient(-45deg, var(--color-camo-olive) 25%, transparent 25%),
+      linear-gradient(45deg, transparent 75%, var(--color-camo-olive) 75%),
+      linear-gradient(-45deg, transparent 75%, var(--color-camo-olive) 75%);
+    background-size: 20px 20px;
+    background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+  }
+
+  .bg-military-stripes {
+    background: repeating-linear-gradient(
+        45deg,
+        transparent,
+        transparent 10px,
+        var(--color-camo-sand) 10px,
+        var(--color-camo-sand) 20px
+    );
+  }
+
+  // Print styles
+  @media print {
+    .no-print {
+      display: none !important;
+    }
+
+    body {
+      background-color: white !important;
+      color: black !important;
+    }
+
+    .card,
+    .military-panel {
+      box-shadow: none !important;
+      border: 1px solid #ccc !important;
+    }
+  }
+
+  // High contrast mode support
+  @media (prefers-contrast: high) {
+    :root {
+      --color-border-primary: #000000;
+      --color-text-primary: #000000;
+      --color-background-primary: #ffffff;
+    }
+
+    :root[data-theme="dark"] {
+      --color-border-primary: #ffffff;
+      --color-text-primary: #ffffff;
+      --color-background-primary: #000000;
+    }
+  }
+
+  // Reduced motion support
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+
+    .status-indicator,
+    .animate-pulse {
+      animation: none;
+    }
+  }
+}
+
+// Component-specific styles (global overrides)
+@layer components {
+  // Sidebar menu items
+  .menu-item {
+    position: relative;
+
+    &.active {
+      background: linear-gradient(90deg, rgba(90, 125, 154, 0.1), rgba(90, 125, 154, 0.05));
+      border-left: 3px solid var(--color-steel-blue);
+      border-right: 1px solid rgba(90, 125, 154, 0.2);
+    }
+
+    &:hover:not(.active) {
+      background-color: var(--color-background-tertiary);
+    }
+  }
+
+  // Notification badge
+  .notification-badge {
+    animation: pulse 2s infinite;
+    position: absolute;
+
+    &.badge-dot {
+      width: 0.5rem;
+      height: 0.5rem;
+      border-radius: 50%;
+    }
+  }
+
+  // Top secret stamp
+  .top-secret-stamp {
+    position: absolute;
+    right: 1.25rem;
+    top: 1.25rem;
+    transform: rotate(15deg);
+    opacity: 0.1;
+    pointer-events: none;
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--color-alert-red);
+  }
+
+  // Military data table
+  .military-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+
+    thead {
+      background-color: var(--color-background-tertiary);
+
+      th {
+        padding: 0.75rem 1rem;
+        text-align: left;
+        font-weight: 600;
+        color: var(--color-text-secondary);
+        border-bottom: 2px solid var(--color-border-primary);
+        white-space: nowrap;
+      }
+    }
+
+    tbody {
+      tr {
+        transition: background-color var(--transition-military);
+
+        &:hover {
+          background-color: var(--color-background-tertiary);
+        }
+
+        td {
+          padding: 0.75rem 1rem;
+          border-bottom: 1px solid var(--color-border-secondary);
+        }
+      }
+    }
+  }
+
+  // Dashboard grid layout
+  .dashboard-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: var(--spacing-military-lg);
+
+    @media (min-width: 768px) {
+      grid-template-columns: repeat(2, 1fr);
+    }
+
+    @media (min-width: 1024px) {
+      grid-template-columns: repeat(3, 1fr);
+    }
+
+    @media (min-width: 1280px) {
+      grid-template-columns: repeat(4, 1fr);
+    }
+  }
+
+  // Status indicators row
+  .status-indicators {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-military-md);
+
+    .status-indicator-item {
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-military);
+      padding: 0.5rem 0.75rem;
+      background-color: var(--color-background-panel);
+      border: 1px solid var(--color-border-primary);
+      border-radius: var(--radius-military-md);
+      font-size: var(--text-sm);
+
+      .indicator-dot {
+        width: 0.5rem;
+        height: 0.5rem;
+        border-radius: 50%;
+      }
+    }
+  }
+
+  // Emergency protocol panel
+  .emergency-panel {
+    border: 2px solid var(--color-alert-red);
+    background: linear-gradient(135deg, rgba(184, 82, 82, 0.1), rgba(184, 82, 82, 0.05));
+    animation: pulse 3s infinite;
+
+    button {
+      background-color: var(--color-alert-red);
+      color: white;
+
+      &:hover {
+        background-color: #9a4242;
+      }
+    }
   }
 }
