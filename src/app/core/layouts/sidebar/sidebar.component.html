@@ -1,432 +1,265 @@
-<!-- Desktop Sidebar -->
-<aside [class]="collapsed ? 'sidebar collapsed' : 'sidebar'"
-       [class.hidden]="mobileMenuOpen"
-       [class.lg:flex]="!collapsed">
+<aside id="desktopNav" class="hidden lg:flex flex-col w-64 bg-white border-r border-camo-tan shadow-military-md">
 
   <!-- Header with Logo -->
-  <div class="sidebar-header">
-    <div class="logo-container">
-      <div class="logo-icon">
-        <i class="fas fa-shield-alt"></i>
+  <div class="p-6 border-b border-camo-sand">
+    <div class="flex items-center space-x-3">
+      <div class="w-10 h-10 rounded-lg bg-steel-blue flex items-center justify-center">
+        <i class="fas fa-shield-alt text-white text-xl"></i>
       </div>
-      <div class="logo-text" *ngIf="!collapsed">
-        <h1 class="logo-title">COMMAND CENTER</h1>
-        <p class="logo-subtitle">v2.1.4 • SECURE</p>
+      <div>
+        <h1 class="text-lg font-bold uppercase tracking-wide text-military-black">COMMAND CENTER</h1>
+        <p class="text-xs text-camo-dark">v2.1.4 • SECURE</p>
       </div>
     </div>
 
     <!-- User Status -->
-    <div class="user-status" *ngIf="!collapsed">
-      <div class="user-info">
-        <div class="user-avatar">
-          <i class="fas fa-user"></i>
+    <div class="mt-6 p-3 bg-desert-tan/50 rounded border border-camo-tan">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center space-x-3">
+          <div class="w-8 h-8 rounded-full bg-steel-blue flex items-center justify-center">
+            <i class="fas fa-user text-white text-sm"></i>
+          </div>
+          <div>
+            <p class="text-sm font-semibold text-military-black">Operator-742</p>
+            <p class="text-xs text-camo-dark">Captain • Level 3</p>
+          </div>
         </div>
-        <div class="user-details">
-          <p class="user-name">{{ userStatus.name }}</p>
-          <p class="user-rank">{{ userStatus.rank }} • Level {{ userStatus.level }}</p>
-        </div>
-        <div class="status-dot" [class]="getStatusColor(userStatus.status)"></div>
+        <div class="w-2 h-2 rounded-full bg-success-green animate-pulse"></div>
       </div>
     </div>
   </div>
 
   <!-- Main Navigation Menu -->
-  <nav class="sidebar-nav">
-    <ul class="nav-menu">
+  <nav class="flex-1 overflow-y-auto py-4">
+    <ul class="space-y-1 px-3">
+
       <!-- Dashboard -->
-      <li class="nav-item">
-        <a class="nav-link"
-           [class.active]="isItemActive(menuItems[0])"
-           (click)="toggleMenuItem(menuItems[0])">
-          <i class="nav-icon" [class]="menuItems[0].icon"></i>
-          <span class="nav-text" *ngIf="!collapsed">{{ menuItems[0].title }}</span>
-          @if (menuItems[0].badge && !collapsed) {
-            <span class="nav-badge" [class]="getBadgeClasses(menuItems[0].badge!.type)">
-              {{ menuItems[0].badge!.text }}
-            </span>
-          }
+      <li>
+        <a href="#" class="menu-item-active flex items-center justify-between p-3 rounded-lg hover:bg-desert-tan/50 transition-colors group">
+          <div class="flex items-center space-x-3">
+            <i class="fas fa-tachometer-alt text-steel-blue w-5"></i>
+            <span class="font-medium text-military-black">Dashboard</span>
+          </div>
+          <span class="text-xs bg-steel-blue/10 text-steel-blue px-2 py-1 rounded">LIVE</span>
         </a>
       </li>
 
-      <!-- Divider: Intelligence -->
-      @if (!collapsed) {
-        <li class="nav-divider">
-          <span>Intelligence</span>
-        </li>
-      }
+      <!-- Divider -->
+      <li class="px-3 py-2">
+        <div class="text-xs font-bold uppercase tracking-wider text-camo-dark flex items-center">
+          <span class="flex-1 border-t border-camo-sand"></span>
+          <span class="px-2">Intelligence</span>
+          <span class="flex-1 border-t border-camo-sand"></span>
+        </div>
+      </li>
 
       <!-- Intelligence (with submenu) -->
-      <li class="nav-item" *ngIf="hasPermission(menuItems[1])">
-        <button class="nav-link"
-                [class.expanded]="menuItems[1].expanded"
-                [class.active]="isItemActive(menuItems[1])"
-                (click)="toggleMenuItem(menuItems[1])">
-          <i class="nav-icon" [class]="menuItems[1].icon"></i>
-          <span class="nav-text" *ngIf="!collapsed">{{ menuItems[1].title }}</span>
-          @if (menuItems[1].badge && !collapsed) {
-            <span class="nav-badge notification" [class]="getBadgeClasses(menuItems[1].badge!.type)">
-              {{ menuItems[1].badge!.text }}
-            </span>
-          }
-          @if (!collapsed) {
-            <i class="nav-arrow fas fa-chevron-down"></i>
-          }
+      <li class="relative">
+        <button class="menu-item flex items-center justify-between w-full p-3 rounded-lg hover:bg-desert-tan/50 transition-colors group"
+                onclick="toggleSubmenu('intelSubmenu', this)">
+          <div class="flex items-center space-x-3">
+            <i class="fas fa-binoculars text-steel-blue w-5"></i>
+            <span class="font-medium text-military-black">Intelligence</span>
+          </div>
+          <div class="flex items-center space-x-2">
+            <span class="notification-badge w-2 h-2 rounded-full bg-alert-red"></span>
+            <i class="fas fa-chevron-down text-camo-dark text-xs transition-transform group-[.expanded]:rotate-180"></i>
+          </div>
         </button>
 
-        <!-- Intelligence Submenu -->
-        @if (menuItems[1].expanded && !collapsed) {
-          <ul class="nav-submenu">
-            @for (child of menuItems[1].children; track child.title) {
-              @if (hasPermission(child)) {
-                <li class="nav-subitem">
-                  @if (child.children) {
-                    <button class="nav-sublink"
-                            [class.expanded]="child.expanded"
-                            (click)="toggleMenuItem(child)">
-                      <i class="nav-subicon" [class]="child.icon"></i>
-                      <span class="nav-subtext">{{ child.title }}</span>
-                      <i class="nav-subarrow fas fa-chevron-right"></i>
-                    </button>
+        <!-- Submenu -->
+        <ul id="intelSubmenu" class="hidden ml-4 mt-1 space-y-1 border-l border-camo-sand pl-3">
+          <li>
+            <a href="#" class="flex items-center space-x-3 p-2 rounded hover:bg-desert-tan/30 transition-colors">
+              <i class="fas fa-map-marked-alt text-camo-olive text-sm w-5"></i>
+              <span class="text-sm text-military-black">Geospatial Intel</span>
+            </a>
+          </li>
+          <li>
+            <button class="flex items-center justify-between w-full p-2 rounded hover:bg-desert-tan/30 transition-colors group"
+                    onclick="toggleSubmenu('sigintSubmenu', this)">
+              <div class="flex items-center space-x-3">
+                <i class="fas fa-satellite-dish text-camo-olive text-sm w-5"></i>
+                <span class="text-sm text-military-black">SIGINT</span>
+              </div>
+              <i class="fas fa-chevron-right text-camo-dark text-xs transition-transform group-[.expanded]:rotate-90"></i>
+            </button>
 
-                    <!-- Nested Submenu -->
-                    @if (child.expanded) {
-                      <ul class="nav-nested-submenu">
-                        @for (nestedChild of child.children; track nestedChild.title) {
-                          @if (hasPermission(nestedChild)) {
-                            <li class="nav-nested-item">
-                              <a class="nav-nested-link"
-                                 [routerLink]="nestedChild.route"
-                                 routerLinkActive="active"
-                                 (click)="closeMobileMenu()">
-                                <i class="nav-nested-icon" [class]="nestedChild.icon"></i>
-                                <span class="nav-nested-text">{{ nestedChild.title }}</span>
-                              </a>
-                            </li>
-                          }
-                        }
-                      </ul>
-                    }
-                  } @else {
-                    <a class="nav-sublink"
-                       [routerLink]="child.route"
-                       routerLinkActive="active"
-                       (click)="closeMobileMenu()">
-                      <i class="nav-subicon" [class]="child.icon"></i>
-                      <span class="nav-subtext">{{ child.title }}</span>
-                    </a>
-                  }
-                </li>
-              }
-            }
-          </ul>
-        }
+            <!-- Nested Submenu -->
+            <ul id="sigintSubmenu" class="hidden ml-4 mt-1 space-y-1 border-l border-camo-sand pl-3">
+              <li>
+                <a href="#" class="flex items-center space-x-3 p-2 rounded hover:bg-desert-tan/20 transition-colors">
+                  <i class="fas fa-wifi text-camo-gray text-xs w-5"></i>
+                  <span class="text-xs text-military-black">Signals Analysis</span>
+                </a>
+              </li>
+              <li>
+                <a href="#" class="flex items-center space-x-3 p-2 rounded hover:bg-desert-tan/20 transition-colors">
+                  <i class="fas fa-code text-camo-gray text-xs w-5"></i>
+                  <span class="text-xs text-military-black">Code Breaking</span>
+                </a>
+              </li>
+            </ul>
+          </li>
+          <li>
+            <a href="#" class="flex items-center space-x-3 p-2 rounded hover:bg-desert-tan/30 transition-colors">
+              <i class="fas fa-user-secret text-camo-olive text-sm w-5"></i>
+              <span class="text-sm text-military-black">HUMINT</span>
+            </a>
+          </li>
+        </ul>
       </li>
 
       <!-- Operations -->
-      <li class="nav-item" *ngIf="hasPermission(menuItems[2])">
-        <button class="nav-link"
-                [class.expanded]="menuItems[2].expanded"
-                [class.active]="isItemActive(menuItems[2])"
-                (click)="toggleMenuItem(menuItems[2])">
-          <i class="nav-icon" [class]="menuItems[2].icon"></i>
-          <span class="nav-text" *ngIf="!collapsed">{{ menuItems[2].title }}</span>
-          @if (menuItems[2].badge && !collapsed) {
-            <span class="nav-badge" [class]="getBadgeClasses(menuItems[2].badge!.type)">
-              {{ menuItems[2].badge!.text }}
-            </span>
-          }
-          @if (!collapsed) {
-            <i class="nav-arrow fas fa-chevron-down"></i>
-          }
+      <li>
+        <button class="menu-item flex items-center justify-between w-full p-3 rounded-lg hover:bg-desert-tan/50 transition-colors group"
+                onclick="toggleSubmenu('opsSubmenu', this)">
+          <div class="flex items-center space-x-3">
+            <i class="fas fa-crosshairs text-steel-blue w-5"></i>
+            <span class="font-medium text-military-black">Operations</span>
+          </div>
+          <div class="flex items-center space-x-2">
+            <span class="text-xs bg-alert-orange/10 text-alert-orange px-2 py-1 rounded">3 ACTIVE</span>
+            <i class="fas fa-chevron-down text-camo-dark text-xs transition-transform group-[.expanded]:rotate-180"></i>
+          </div>
         </button>
 
-        <!-- Operations Submenu -->
-        @if (menuItems[2].expanded && !collapsed) {
-          <ul class="nav-submenu">
-            @for (child of menuItems[2].children; track child.title) {
-              @if (hasPermission(child)) {
-                <li class="nav-subitem">
-                  <a class="nav-sublink"
-                     [routerLink]="child.route"
-                     routerLinkActive="active"
-                     (click)="closeMobileMenu()">
-                    <i class="nav-subicon" [class]="child.icon"></i>
-                    <span class="nav-subtext">{{ child.title }}</span>
-                  </a>
-                </li>
-              }
-            }
-          </ul>
-        }
+        <!-- Submenu -->
+        <ul id="opsSubmenu" class="hidden ml-4 mt-1 space-y-1 border-l border-camo-sand pl-3">
+          <li>
+            <a href="#" class="flex items-center space-x-3 p-2 rounded hover:bg-desert-tan/30 transition-colors">
+              <i class="fas fa-plane text-camo-olive text-sm w-5"></i>
+              <span class="text-sm text-military-black">Air Operations</span>
+            </a>
+          </li>
+          <li>
+            <a href="#" class="flex items-center space-x-3 p-2 rounded hover:bg-desert-tan/30 transition-colors">
+              <i class="fas fa-ship text-camo-olive text-sm w-5"></i>
+              <span class="text-sm text-military-black">Naval Operations</span>
+            </a>
+          </li>
+          <li>
+            <a href="#" class="flex items-center space-x-3 p-2 rounded hover:bg-desert-tan/30 transition-colors">
+              <i class="fas fa-user-ninja text-camo-olive text-sm w-5"></i>
+              <span class="text-sm text-military-black">Special Forces</span>
+            </a>
+          </li>
+        </ul>
       </li>
 
-      <!-- Divider: Communications -->
-      @if (!collapsed) {
-        <li class="nav-divider">
-          <span>Communications</span>
-        </li>
-      }
+      <!-- Divider -->
+      <li class="px-3 py-2">
+        <div class="text-xs font-bold uppercase tracking-wider text-camo-dark flex items-center">
+          <span class="flex-1 border-t border-camo-sand"></span>
+          <span class="px-2">Communications</span>
+          <span class="flex-1 border-t border-camo-sand"></span>
+        </div>
+      </li>
 
       <!-- Communications -->
-      <li class="nav-item">
-        <a class="nav-link"
-           [class.active]="isItemActive(menuItems[3])"
-           (click)="toggleMenuItem(menuItems[3])">
-          <i class="nav-icon" [class]="menuItems[3].icon"></i>
-          <span class="nav-text" *ngIf="!collapsed">{{ menuItems[3].title }}</span>
-          @if (menuItems[3].badge && !collapsed) {
-            <span class="nav-badge" [class]="getBadgeClasses(menuItems[3].badge!.type)">
-              {{ menuItems[3].badge!.text }}
-            </span>
-          }
+      <li>
+        <a href="#" class="menu-item flex items-center justify-between p-3 rounded-lg hover:bg-desert-tan/50 transition-colors">
+          <div class="flex items-center space-x-3">
+            <i class="fas fa-satellite text-steel-blue w-5"></i>
+            <span class="font-medium text-military-black">Comms</span>
+          </div>
+          <span class="text-xs bg-success-green/10 text-success-green px-2 py-1 rounded">ENCRYPTED</span>
         </a>
       </li>
 
       <!-- Equipment -->
-      <li class="nav-item">
-        <button class="nav-link"
-                [class.expanded]="menuItems[4].expanded"
-                [class.active]="isItemActive(menuItems[4])"
-                (click)="toggleMenuItem(menuItems[4])">
-          <i class="nav-icon" [class]="menuItems[4].icon"></i>
-          <span class="nav-text" *ngIf="!collapsed">{{ menuItems[4].title }}</span>
-          @if (!collapsed) {
-            <i class="nav-arrow fas fa-chevron-down"></i>
-          }
+      <li>
+        <button class="menu-item flex items-center justify-between w-full p-3 rounded-lg hover:bg-desert-tan/50 transition-colors group"
+                onclick="toggleSubmenu('equipSubmenu', this)">
+          <div class="flex items-center space-x-3">
+            <i class="fas fa-tools text-steel-blue w-5"></i>
+            <span class="font-medium text-military-black">Equipment</span>
+          </div>
+          <i class="fas fa-chevron-down text-camo-dark text-xs transition-transform group-[.expanded]:rotate-180"></i>
         </button>
 
-        <!-- Equipment Submenu -->
-        @if (menuItems[4].expanded && !collapsed) {
-          <ul class="nav-submenu">
-            @for (child of menuItems[4].children; track child.title) {
-              <li class="nav-subitem">
-                <a class="nav-sublink"
-                   [routerLink]="child.route"
-                   routerLinkActive="active"
-                   (click)="closeMobileMenu()">
-                  <i class="nav-subicon" [class]="child.icon"></i>
-                  <span class="nav-subtext">{{ child.title }}</span>
-                </a>
-              </li>
-            }
-          </ul>
-        }
+        <!-- Submenu -->
+        <ul id="equipSubmenu" class="hidden ml-4 mt-1 space-y-1 border-l border-camo-sand pl-3">
+          <li>
+            <a href="#" class="flex items-center space-x-3 p-2 rounded hover:bg-desert-tan/30 transition-colors">
+              <i class="fas fa-fighter-jet text-camo-olive text-sm w-5"></i>
+              <span class="text-sm text-military-black">Aircraft</span>
+            </a>
+          </li>
+          <li>
+            <a href="#" class="flex items-center space-x-3 p-2 rounded hover:bg-desert-tan/30 transition-colors">
+              <i class="fas fa-tank text-camo-olive text-sm w-5"></i>
+              <span class="text-sm text-military-black">Ground Vehicles</span>
+            </a>
+          </li>
+          <li>
+            <a href="#" class="flex items-center space-x-3 p-2 rounded hover:bg-desert-tan/30 transition-colors">
+              <i class="fas fa-shield-alt text-camo-olive text-sm w-5"></i>
+              <span class="text-sm text-military-black">Defense Systems</span>
+            </a>
+          </li>
+        </ul>
       </li>
 
       <!-- Personnel -->
-      <li class="nav-item">
-        <a class="nav-link"
-           [class.active]="isItemActive(menuItems[5])"
-           (click)="toggleMenuItem(menuItems[5])">
-          <i class="nav-icon" [class]="menuItems[5].icon"></i>
-          <span class="nav-text" *ngIf="!collapsed">{{ menuItems[5].title }}</span>
-          @if (menuItems[5].badge && !collapsed) {
-            <span class="nav-badge" [class]="getBadgeClasses(menuItems[5].badge!.type)">
-              {{ menuItems[5].badge!.text }}
-            </span>
-          }
+      <li>
+        <a href="#" class="menu-item flex items-center justify-between p-3 rounded-lg hover:bg-desert-tan/50 transition-colors">
+          <div class="flex items-center space-x-3">
+            <i class="fas fa-users text-steel-blue w-5"></i>
+            <span class="font-medium text-military-black">Personnel</span>
+          </div>
+          <span class="text-xs bg-steel-blue text-white px-2 py-1 rounded">12</span>
         </a>
       </li>
 
-      <!-- Divider: System -->
-      @if (!collapsed) {
-        <li class="nav-divider">
-          <span>System</span>
-        </li>
-      }
+      <!-- Divider -->
+      <li class="px-3 py-2">
+        <div class="text-xs font-bold uppercase tracking-wider text-camo-dark flex items-center">
+          <span class="flex-1 border-t border-camo-sand"></span>
+          <span class="px-2">System</span>
+          <span class="flex-1 border-t border-camo-sand"></span>
+        </div>
+      </li>
 
       <!-- Settings -->
-      <li class="nav-item">
-        <a class="nav-link"
-           [class.active]="isItemActive(menuItems[6])"
-           (click)="toggleMenuItem(menuItems[6])">
-          <i class="nav-icon" [class]="menuItems[6].icon"></i>
-          <span class="nav-text" *ngIf="!collapsed">{{ menuItems[6].title }}</span>
+      <li>
+        <a href="#" class="menu-item flex items-center space-x-3 p-3 rounded-lg hover:bg-desert-tan/50 transition-colors">
+          <i class="fas fa-cog text-steel-blue w-5"></i>
+          <span class="font-medium text-military-black">Settings</span>
         </a>
       </li>
 
-      <!-- Mission Logs -->
-      <li class="nav-item">
-        <a class="nav-link"
-           [class.active]="isItemActive(menuItems[7])"
-           (click)="toggleMenuItem(menuItems[7])">
-          <i class="nav-icon" [class]="menuItems[7].icon"></i>
-          <span class="nav-text" *ngIf="!collapsed">{{ menuItems[7].title }}</span>
+      <!-- Logs -->
+      <li>
+        <a href="#" class="menu-item flex items-center space-x-3 p-3 rounded-lg hover:bg-desert-tan/50 transition-colors">
+          <i class="fas fa-clipboard-list text-steel-blue w-5"></i>
+          <span class="font-medium text-military-black">Mission Logs</span>
         </a>
       </li>
 
-      <!-- Emergency Protocol -->
-      <li class="nav-item emergency">
-        <a class="nav-link emergency" (click)="onEmergencyProtocol()">
-          <i class="nav-icon" [class]="emergencyItem.icon"></i>
-          <span class="nav-text" *ngIf="!collapsed">{{ emergencyItem.title }}</span>
+      <!-- Emergency -->
+      <li class="mt-6">
+        <a href="#" class="menu-item flex items-center space-x-3 p-3 rounded-lg border border-alert-red/30 bg-alert-red/5 hover:bg-alert-red/10 transition-colors group">
+          <i class="fas fa-exclamation-triangle text-alert-red w-5"></i>
+          <span class="font-medium text-alert-red">Emergency Protocol</span>
         </a>
       </li>
     </ul>
   </nav>
 
   <!-- Footer -->
-  <div class="sidebar-footer" *ngIf="!collapsed">
-    <div class="system-status">
-      <div class="status-item">
-        <div class="status-dot bg-success-green"></div>
-        <span>System: ONLINE</span>
-      </div>
-      <div class="status-item">
-        Alert Level: <span class="alert-level">{{ systemStatus.alertLevel }}</span>
-      </div>
-    </div>
-    <button class="lock-button" (click)="onLockSystem()" title="Lock System">
-      <i class="fas fa-lock"></i>
-    </button>
-  </div>
-</aside>
-
-<!-- Mobile Header -->
-<header class="mobile-header lg:hidden">
-  <div class="mobile-header-content">
-    <button class="mobile-menu-toggle"
-            data-menu-toggle
-            (click)="toggleMobileMenu()"
-            aria-label="Toggle menu">
-      <i class="fas fa-bars"></i>
-    </button>
-
-    <div class="mobile-logo">
-      <div class="mobile-logo-icon">
-        <i class="fas fa-shield-alt"></i>
-      </div>
-      <h1 class="mobile-logo-title">COMMAND</h1>
-    </div>
-
-    <div class="mobile-controls">
-      <div class="notification-bell">
-        <i class="fas fa-bell"></i>
-        <span class="notification-dot"></span>
-      </div>
-      <div class="status-dot bg-success-green"></div>
-    </div>
-  </div>
-</header>
-
-<!-- Mobile Navigation Overlay -->
-<div id="mobileNav"
-     class="mobile-nav-overlay"
-     [class.open]="mobileMenuOpen"
-     (click)="closeMobileMenu()">
-
-  <!-- Mobile Menu -->
-  <div class="mobile-menu" (click)="$event.stopPropagation()">
-
-    <!-- Mobile Header -->
-    <div class="mobile-menu-header">
-      <div class="mobile-menu-logo">
-        <div class="mobile-menu-logo-icon">
-          <i class="fas fa-shield-alt"></i>
+  <div class="p-4 border-t border-camo-sand">
+    <div class="flex items-center justify-between">
+      <div class="text-xs text-camo-dark">
+        <div class="flex items-center space-x-2">
+          <div class="w-2 h-2 rounded-full bg-success-green animate-pulse"></div>
+          <span>System: ONLINE</span>
         </div>
-        <div>
-          <h1 class="mobile-menu-title">COMMAND CENTER</h1>
-          <p class="mobile-menu-subtitle">v2.1.4 • SECURE</p>
-        </div>
+        <div class="mt-1">Alert Level: <span class="font-bold text-alert-orange">2</span></div>
       </div>
-      <button class="mobile-menu-close" (click)="closeMobileMenu()">
-        <i class="fas fa-times"></i>
+      <button class="p-2 hover:bg-desert-tan/50 rounded transition-colors" title="Lock System">
+        <i class="fas fa-lock text-camo-dark"></i>
       </button>
     </div>
-
-    <!-- User Status -->
-    <div class="mobile-user-status">
-      <div class="mobile-user-info">
-        <div class="mobile-user-avatar">
-          <i class="fas fa-user"></i>
-        </div>
-        <div class="mobile-user-details">
-          <p class="mobile-user-name">{{ userStatus.name }}</p>
-          <p class="mobile-user-rank">{{ userStatus.rank }} • Level {{ userStatus.level }}</p>
-        </div>
-        <div class="mobile-status-dot" [class]="getStatusColor(userStatus.status)"></div>
-      </div>
-    </div>
-
-    <!-- Mobile Navigation -->
-    <nav class="mobile-nav">
-      <ul class="mobile-nav-menu">
-        @for (item of menuItems.slice(0, 3); track item.title) {
-          @if (hasPermission(item)) {
-            <li class="mobile-nav-item">
-              <button class="mobile-nav-link"
-                      [class.expanded]="item.expanded"
-                      [class.active]="isItemActive(item)"
-                      (click)="toggleMenuItem(item)">
-                <i class="mobile-nav-icon" [class]="item.icon"></i>
-                <span class="mobile-nav-text">{{ item.title }}</span>
-                @if (item.badge) {
-                  <span class="mobile-nav-badge" [class]="getBadgeClasses(item.badge.type)">
-                    {{ item.badge.text }}
-                  </span>
-                }
-                @if (item.children) {
-                  <i class="mobile-nav-arrow fas fa-chevron-down"></i>
-                }
-              </button>
-
-              <!-- Mobile Submenu -->
-              @if (item.expanded && item.children) {
-                <ul class="mobile-nav-submenu">
-                  @for (child of item.children; track child.title) {
-                    @if (hasPermission(child)) {
-                      <li class="mobile-nav-subitem">
-                        @if (child.children) {
-                          <button class="mobile-nav-sublink"
-                                  [class.expanded]="child.expanded"
-                                  (click)="toggleMenuItem(child)">
-                            <i class="mobile-nav-subicon" [class]="child.icon"></i>
-                            <span class="mobile-nav-subtext">{{ child.title }}</span>
-                            <i class="mobile-nav-subarrow fas fa-chevron-right"></i>
-                          </button>
-
-                          <!-- Nested Mobile Submenu -->
-                          @if (child.expanded) {
-                            <ul class="mobile-nav-nested-submenu">
-                              @for (nestedChild of child.children; track nestedChild.title) {
-                                @if (hasPermission(nestedChild)) {
-                                  <li class="mobile-nav-nested-item">
-                                    <a class="mobile-nav-nested-link"
-                                       [routerLink]="nestedChild.route"
-                                       (click)="closeMobileMenu()">
-                                      <i class="mobile-nav-nested-icon" [class]="nestedChild.icon"></i>
-                                      <span class="mobile-nav-nested-text">{{ nestedChild.title }}</span>
-                                    </a>
-                                  </li>
-                                }
-                              }
-                            </ul>
-                          }
-                        } @else {
-                          <a class="mobile-nav-sublink"
-                             [routerLink]="child.route"
-                             (click)="closeMobileMenu()">
-                            <i class="mobile-nav-subicon" [class]="child.icon"></i>
-                            <span class="mobile-nav-subtext">{{ child.title }}</span>
-                          </a>
-                        }
-                      </li>
-                    }
-                  }
-                </ul>
-              }
-            </li>
-          }
-        }
-
-        <!-- Emergency Protocol (Mobile) -->
-        <li class="mobile-nav-item emergency">
-          <a class="mobile-nav-link emergency" (click)="onEmergencyProtocol()">
-            <i class="mobile-nav-icon" [class]="emergencyItem.icon"></i>
-            <span class="mobile-nav-text">{{ emergencyItem.title }}</span>
-          </a>
-        </li>
-      </ul>
-    </nav>
   </div>
-</div>
+</aside>

@@ -1,5 +1,14 @@
 // Import Tailwind CSS
-@use "tailwindcss";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Your custom styles below */
+
+/* Example: If you need to add custom utilities, use @layer */
+@layer utilities {
+  /* Your custom utility classes here */
+}
 
 // Custom military theme variables using @theme directive
 @theme {
