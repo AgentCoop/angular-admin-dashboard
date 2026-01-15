@@ -40,12 +40,13 @@
               "src/assets"
             ],
             "styles": [
+              "src/tailwind.css",
               "src/styles.scss"
             ],
             "scripts": [],
             "stylePreprocessorOptions": {
               "includePaths": ["./node_modules"]
-            },
+            }
           },
           "configurations": {
             "production": {
