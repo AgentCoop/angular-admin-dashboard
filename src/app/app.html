@@ -1,612 +1,188 @@
-<div class="flex min-h-screen">
+<!-- Main App Container -->
+<div class="app-container" [class.dashboard-layout]="(layoutType$ | async) === 'dashboard'">
 
-  <!-- Desktop Sidebar Navigation -->
-  <aside id="desktopNav" class="hidden lg:flex flex-col w-64 bg-white border-r border-camo-tan shadow-military-md"c>
-
-    <!-- Header with Logo -->
-    <div class="p-6 border-b border-camo-sand">
-      <div class="flex items-center space-x-3">
-        <div class="w-10 h-10 rounded-lg bg-steel-blue flex items-center justify-center">
-          <i class="fas fa-shield-alt text-white text-xl"></i>
-        </div>
-        <div>
-          <h1 class="text-lg font-bold uppercase tracking-wide text-military-black">COMMAND CENTER</h1>
-          <p class="text-xs text-camo-dark">v2.1.4 • SECURE</p>
-        </div>
-      </div>
-
-      <!-- User Status -->
-      <div class="mt-6 p-3 bg-desert-tan/50 rounded border border-camo-tan">
-        <div class="flex items-center justify-between">
-          <div class="flex items-center space-x-3">
-            <div class="w-8 h-8 rounded-full bg-steel-blue flex items-center justify-center">
-              <i class="fas fa-user text-white text-sm"></i>
-            </div>
-            <div>
-              <p class="text-sm font-semibold text-military-black">Operator-742</p>
-              <p class="text-xs text-camo-dark">Captain • Level 3</p>
-            </div>
-          </div>
-          <div class="w-2 h-2 rounded-full bg-success-green animate-pulse"></div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Main Navigation Menu -->
-    <nav class="flex-1 overflow-y-auto py-4">
-      <ul class="space-y-1 px-3">
-
-        <!-- Dashboard -->
-        <li>
-          <a href="#" class="menu-item-active flex items-center justify-between p-3 rounded-lg hover:bg-desert-tan/50 transition-colors group">
-            <div class="flex items-center space-x-3">
-              <i class="fas fa-tachometer-alt text-steel-blue w-5"></i>
-              <span class="font-medium text-military-black">Dashboard</span>
-            </div>
-            <span class="text-xs bg-steel-blue/10 text-steel-blue px-2 py-1 rounded">LIVE</span>
-          </a>
-        </li>
-
-        <!-- Divider -->
-        <li class="px-3 py-2">
-          <div class="text-xs font-bold uppercase tracking-wider text-camo-dark flex items-center">
-            <span class="flex-1 border-t border-camo-sand"></span>
-            <span class="px-2">Intelligence</span>
-            <span class="flex-1 border-t border-camo-sand"></span>
-          </div>
-        </li>
-
-        <!-- Intelligence (with submenu) -->
-        <li class="relative">
-          <button class="menu-item flex items-center justify-between w-full p-3 rounded-lg hover:bg-desert-tan/50 transition-colors group"
-                  onclick="toggleSubmenu('intelSubmenu', this)">
-            <div class="flex items-center space-x-3">
-              <i class="fas fa-binoculars text-steel-blue w-5"></i>
-              <span class="font-medium text-military-black">Intelligence</span>
-            </div>
-            <div class="flex items-center space-x-2">
-              <span class="notification-badge w-2 h-2 rounded-full bg-alert-red"></span>
-              <i class="fas fa-chevron-down text-camo-dark text-xs transition-transform group-[.expanded]:rotate-180"></i>
-            </div>
+  <!-- Header -->
+  @if (showHeader$ | async) {
+    <header class="app-header">
+      <div class="header-content">
+        <div class="header-left">
+          <button class="sidebar-toggle" (click)="toggleSidebar()">
+            <span class="icon">☰</span>
           </button>
-
-          <!-- Submenu -->
-          <ul id="intelSubmenu" class="hidden ml-4 mt-1 space-y-1 border-l border-camo-sand pl-3">
-            <li>
-              <a href="#" class="flex items-center space-x-3 p-2 rounded hover:bg-desert-tan/30 transition-colors">
-                <i class="fas fa-map-marked-alt text-camo-olive text-sm w-5"></i>
-                <span class="text-sm text-military-black">Geospatial Intel</span>
-              </a>
-            </li>
-            <li>
-              <button class="flex items-center justify-between w-full p-2 rounded hover:bg-desert-tan/30 transition-colors group"
-                      onclick="toggleSubmenu('sigintSubmenu', this)">
-                <div class="flex items-center space-x-3">
-                  <i class="fas fa-satellite-dish text-camo-olive text-sm w-5"></i>
-                  <span class="text-sm text-military-black">SIGINT</span>
-                </div>
-                <i class="fas fa-chevron-right text-camo-dark text-xs transition-transform group-[.expanded]:rotate-90"></i>
-              </button>
-
-              <!-- Nested Submenu -->
-              <ul id="sigintSubmenu" class="hidden ml-4 mt-1 space-y-1 border-l border-camo-sand pl-3">
-                <li>
-                  <a href="#" class="flex items-center space-x-3 p-2 rounded hover:bg-desert-tan/20 transition-colors">
-                    <i class="fas fa-wifi text-camo-gray text-xs w-5"></i>
-                    <span class="text-xs text-military-black">Signals Analysis</span>
-                  </a>
-                </li>
-                <li>
-                  <a href="#" class="flex items-center space-x-3 p-2 rounded hover:bg-desert-tan/20 transition-colors">
-                    <i class="fas fa-code text-camo-gray text-xs w-5"></i>
-                    <span class="text-xs text-military-black">Code Breaking</span>
-                  </a>
-                </li>
-              </ul>
-            </li>
-            <li>
-              <a href="#" class="flex items-center space-x-3 p-2 rounded hover:bg-desert-tan/30 transition-colors">
-                <i class="fas fa-user-secret text-camo-olive text-sm w-5"></i>
-                <span class="text-sm text-military-black">HUMINT</span>
-              </a>
-            </li>
-          </ul>
-        </li>
-
-        <!-- Operations -->
-        <li>
-          <button class="menu-item flex items-center justify-between w-full p-3 rounded-lg hover:bg-desert-tan/50 transition-colors group"
-                  onclick="toggleSubmenu('opsSubmenu', this)">
-            <div class="flex items-center space-x-3">
-              <i class="fas fa-crosshairs text-steel-blue w-5"></i>
-              <span class="font-medium text-military-black">Operations</span>
-            </div>
-            <div class="flex items-center space-x-2">
-              <span class="text-xs bg-alert-orange/10 text-alert-orange px-2 py-1 rounded">3 ACTIVE</span>
-              <i class="fas fa-chevron-down text-camo-dark text-xs transition-transform group-[.expanded]:rotate-180"></i>
-            </div>
-          </button>
-
-          <!-- Submenu -->
-          <ul id="opsSubmenu" class="hidden ml-4 mt-1 space-y-1 border-l border-camo-sand pl-3">
-            <li>
-              <a href="#" class="flex items-center space-x-3 p-2 rounded hover:bg-desert-tan/30 transition-colors">
-                <i class="fas fa-plane text-camo-olive text-sm w-5"></i>
-                <span class="text-sm text-military-black">Air Operations</span>
-              </a>
-            </li>
-            <li>
-              <a href="#" class="flex items-center space-x-3 p-2 rounded hover:bg-desert-tan/30 transition-colors">
-                <i class="fas fa-ship text-camo-olive text-sm w-5"></i>
-                <span class="text-sm text-military-black">Naval Operations</span>
-              </a>
-            </li>
-            <li>
-              <a href="#" class="flex items-center space-x-3 p-2 rounded hover:bg-desert-tan/30 transition-colors">
-                <i class="fas fa-user-ninja text-camo-olive text-sm w-5"></i>
-                <span class="text-sm text-military-black">Special Forces</span>
-              </a>
-            </li>
-          </ul>
-        </li>
-
-        <!-- Divider -->
-        <li class="px-3 py-2">
-          <div class="text-xs font-bold uppercase tracking-wider text-camo-dark flex items-center">
-            <span class="flex-1 border-t border-camo-sand"></span>
-            <span class="px-2">Communications</span>
-            <span class="flex-1 border-t border-camo-sand"></span>
-          </div>
-        </li>
-
-        <!-- Communications -->
-        <li>
-          <a href="#" class="menu-item flex items-center justify-between p-3 rounded-lg hover:bg-desert-tan/50 transition-colors">
-            <div class="flex items-center space-x-3">
-              <i class="fas fa-satellite text-steel-blue w-5"></i>
-              <span class="font-medium text-military-black">Comms</span>
-            </div>
-            <span class="text-xs bg-success-green/10 text-success-green px-2 py-1 rounded">ENCRYPTED</span>
-          </a>
-        </li>
-
-        <!-- Equipment -->
-        <li>
-          <button class="menu-item flex items-center justify-between w-full p-3 rounded-lg hover:bg-desert-tan/50 transition-colors group"
-                  onclick="toggleSubmenu('equipSubmenu', this)">
-            <div class="flex items-center space-x-3">
-              <i class="fas fa-tools text-steel-blue w-5"></i>
-              <span class="font-medium text-military-black">Equipment</span>
-            </div>
-            <i class="fas fa-chevron-down text-camo-dark text-xs transition-transform group-[.expanded]:rotate-180"></i>
-          </button>
-
-          <!-- Submenu -->
-          <ul id="equipSubmenu" class="hidden ml-4 mt-1 space-y-1 border-l border-camo-sand pl-3">
-            <li>
-              <a href="#" class="flex items-center space-x-3 p-2 rounded hover:bg-desert-tan/30 transition-colors">
-                <i class="fas fa-fighter-jet text-camo-olive text-sm w-5"></i>
-                <span class="text-sm text-military-black">Aircraft</span>
-              </a>
-            </li>
-            <li>
-              <a href="#" class="flex items-center space-x-3 p-2 rounded hover:bg-desert-tan/30 transition-colors">
-                <i class="fas fa-tank text-camo-olive text-sm w-5"></i>
-                <span class="text-sm text-military-black">Ground Vehicles</span>
-              </a>
-            </li>
-            <li>
-              <a href="#" class="flex items-center space-x-3 p-2 rounded hover:bg-desert-tan/30 transition-colors">
-                <i class="fas fa-shield-alt text-camo-olive text-sm w-5"></i>
-                <span class="text-sm text-military-black">Defense Systems</span>
-              </a>
-            </li>
-          </ul>
-        </li>
-
-        <!-- Personnel -->
-        <li>
-          <a href="#" class="menu-item flex items-center justify-between p-3 rounded-lg hover:bg-desert-tan/50 transition-colors">
-            <div class="flex items-center space-x-3">
-              <i class="fas fa-users text-steel-blue w-5"></i>
-              <span class="font-medium text-military-black">Personnel</span>
-            </div>
-            <span class="text-xs bg-steel-blue text-white px-2 py-1 rounded">12</span>
-          </a>
-        </li>
-
-        <!-- Divider -->
-        <li class="px-3 py-2">
-          <div class="text-xs font-bold uppercase tracking-wider text-camo-dark flex items-center">
-            <span class="flex-1 border-t border-camo-sand"></span>
-            <span class="px-2">System</span>
-            <span class="flex-1 border-t border-camo-sand"></span>
-          </div>
-        </li>
-
-        <!-- Settings -->
-        <li>
-          <a href="#" class="menu-item flex items-center space-x-3 p-3 rounded-lg hover:bg-desert-tan/50 transition-colors">
-            <i class="fas fa-cog text-steel-blue w-5"></i>
-            <span class="font-medium text-military-black">Settings</span>
-          </a>
-        </li>
-
-        <!-- Logs -->
-        <li>
-          <a href="#" class="menu-item flex items-center space-x-3 p-3 rounded-lg hover:bg-desert-tan/50 transition-colors">
-            <i class="fas fa-clipboard-list text-steel-blue w-5"></i>
-            <span class="font-medium text-military-black">Mission Logs</span>
-          </a>
-        </li>
-
-        <!-- Emergency -->
-        <li class="mt-6">
-          <a href="#" class="menu-item flex items-center space-x-3 p-3 rounded-lg border border-alert-red/30 bg-alert-red/5 hover:bg-alert-red/10 transition-colors group">
-            <i class="fas fa-exclamation-triangle text-alert-red w-5"></i>
-            <span class="font-medium text-alert-red">Emergency Protocol</span>
-          </a>
-        </li>
-      </ul>
-    </nav>
-
-    <!-- Footer -->
-    <div class="p-4 border-t border-camo-sand">
-      <div class="flex items-center justify-between">
-        <div class="text-xs text-camo-dark">
-          <div class="flex items-center space-x-2">
-            <div class="w-2 h-2 rounded-full bg-success-green animate-pulse"></div>
-            <span>System: ONLINE</span>
-          </div>
-          <div class="mt-1">Alert Level: <span class="font-bold text-alert-orange">2</span></div>
-        </div>
-        <button class="p-2 hover:bg-desert-tan/50 rounded transition-colors" title="Lock System">
-          <i class="fas fa-lock text-camo-dark"></i>
-        </button>
-      </div>
-    </div>
-  </aside>
-
-  <!-- Main Content Area -->
-  <main class="flex-1">
-
-    <!-- Mobile Header -->
-    <header class="lg:hidden bg-white border-b border-camo-tan shadow-military-sm sticky top-0 z-40">
-      <div class="flex items-center justify-between p-4">
-        <button class="p-2 hover:bg-desert-tan/50 rounded transition-colors" onclick="toggleMobileMenu()">
-          <i class="fas fa-bars text-steel-blue text-xl"></i>
-        </button>
-
-        <div class="flex items-center space-x-3">
-          <div class="w-8 h-8 rounded-lg bg-steel-blue flex items-center justify-center">
-            <i class="fas fa-shield-alt text-white"></i>
-          </div>
-          <div>
-            <h1 class="text-lg font-bold uppercase tracking-wide text-military-black">COMMAND</h1>
-          </div>
+          <h1 class="page-title">{{ pageTitle$ | async }}</h1>
         </div>
 
-        <div class="flex items-center space-x-3">
-          <div class="relative">
-            <i class="fas fa-bell text-camo-dark"></i>
-            <span class="notification-badge absolute -top-1 -right-1 w-2 h-2 rounded-full bg-alert-red"></span>
+        <div class="header-right">
+          <div class="user-menu">
+            <button class="user-btn" (click)="logout()">
+              <span class="avatar">👤</span>
+              <span class="user-name">{{ (currentUser$ | async)?.name || 'User' }}</span>
+            </button>
           </div>
-          <div class="w-2 h-2 rounded-full bg-success-green animate-pulse"></div>
         </div>
       </div>
     </header>
+  }
 
-    <!-- Mobile Navigation Overlay -->
-    <div id="mobileNav" class="lg:hidden fixed inset-0 z-50 hidden">
-      <!-- Backdrop -->
-      <div class="absolute inset-0 bg-black/50" onclick="toggleMobileMenu()"></div>
+  <!-- Main Content Area -->
+  <main class="main-content">
+    <!-- Page Content -->
+    <section class="page-content">
+      <!-- Loading Indicator -->
+      @if (isLoading$ | async) {
+        <div class="loading-overlay">
+          <div class="loading-spinner"></div>
+          <p>Loading...</p>
+        </div>
+      }
 
-      <!-- Mobile Menu -->
-      <div class="absolute right-0 top-0 bottom-0 w-80 bg-white shadow-military-lg mobile-menu-enter overflow-y-auto">
+      <!-- Error Messages -->
+      @if (errorMessage$ | async) {
+        <div class="error-banner">
+          <span>{{ errorMessage$ | async }}</span>
+          <button (click)="clearError()" class="close-btn">×</button>
+        </div>
+      }
 
-        <!-- Mobile Header -->
-        <div class="p-6 border-b border-camo-sand bg-white">
-          <div class="flex items-center justify-between">
-            <div class="flex items-center space-x-3">
-              <div class="w-10 h-10 rounded-lg bg-steel-blue flex items-center justify-center">
-                <i class="fas fa-shield-alt text-white text-xl"></i>
-              </div>
-              <div>
-                <h1 class="text-lg font-bold uppercase tracking-wide text-military-black">COMMAND CENTER</h1>
-                <p class="text-xs text-camo-dark">v2.1.4 • SECURE</p>
-              </div>
-            </div>
-            <button class="p-2 hover:bg-desert-tan/50 rounded transition-colors" onclick="toggleMobileMenu()">
-              <i class="fas fa-times text-camo-dark"></i>
+      <!-- Draggable Squares Demo -->
+      <div class="demo-container">
+        <div class="demo-header">
+          <h2>🎯 Draggable Squares Demo</h2>
+          <p class="demo-subtitle">Drag the colored squares around. Their top-left coordinates are displayed inside.</p>
+
+          <div class="demo-controls">
+            <button class="control-btn" (click)="resetSquarePositions()">
+              <span class="icon">↺</span>
+              Reset Positions
             </button>
-          </div>
+            <button class="control-btn" (click)="randomizeSquarePositions()">
+              <span class="icon">🎲</span>
+              Randomize
+            </button>
+            <button class="control-btn" (click)="toggleCoordinatesPanel()">
+              <span class="icon">{{ showCoordinatesPanel() ? '👁️' : '👁️‍🗨️' }}</span>
+              {{ showCoordinatesPanel() ? 'Hide' : 'Show' }} Coordinates
+            </button>
 
-          <!-- User Status -->
-          <div class="mt-6 p-3 bg-desert-tan/50 rounded border border-camo-tan">
-            <div class="flex items-center justify-between">
-              <div class="flex items-center space-x-3">
-                <div class="w-8 h-8 rounded-full bg-steel-blue flex items-center justify-center">
-                  <i class="fas fa-user text-white text-sm"></i>
-                </div>
-                <div>
-                  <p class="text-sm font-semibold text-military-black">Operator-742</p>
-                  <p class="text-xs text-camo-dark">Captain • Level 3</p>
-                </div>
-              </div>
-              <div class="w-2 h-2 rounded-full bg-success-green animate-pulse"></div>
+            <div class="alignment-controls">
+              <span class="control-label">Align:</span>
+              <button class="align-btn" (click)="alignSquares('horizontal')">⟷ Horizontal</button>
+              <button class="align-btn" (click)="alignSquares('vertical')">⟶ Vertical</button>
+              <button class="align-btn" (click)="alignSquares('grid')">⏹️ Grid</button>
             </div>
           </div>
         </div>
 
-        <!-- Mobile Navigation -->
-        <nav class="py-4 px-3">
-          <ul class="space-y-1">
-            <!-- Same navigation items as desktop but adjusted for mobile -->
-            <!-- Dashboard -->
-            <li>
-              <a href="#" class="menu-item-active flex items-center justify-between p-3 rounded-lg hover:bg-desert-tan/50 transition-colors group" onclick="toggleMobileMenu()">
-                <div class="flex items-center space-x-3">
-                  <i class="fas fa-tachometer-alt text-steel-blue w-5"></i>
-                  <span class="font-medium text-military-black">Dashboard</span>
-                </div>
-                <span class="text-xs bg-steel-blue/10 text-steel-blue px-2 py-1 rounded">LIVE</span>
-              </a>
-            </li>
+        <!-- Draggable Area -->
+        <div class="draggable-area" #draggableArea>
+          <!-- Grid Background (Optional) -->
+          <div class="grid-background"></div>
 
-            <!-- Divider -->
-            <li class="py-2">
-              <div class="text-xs font-bold uppercase tracking-wider text-camo-dark flex items-center">
-                <span class="flex-1 border-t border-camo-sand"></span>
-                <span class="px-2">Intelligence</span>
-                <span class="flex-1 border-t border-camo-sand"></span>
-              </div>
-            </li>
+          <!-- Axes Labels -->
+          <div class="axis-label x-axis">X Axis</div>
+          <div class="axis-label y-axis">Y Axis</div>
 
-            <!-- Intelligence Mobile -->
-            <li>
-              <button class="menu-item flex items-center justify-between w-full p-3 rounded-lg hover:bg-desert-tan/50 transition-colors group"
-                      onclick="toggleSubmenu('mobileIntelSubmenu', this)">
-                <div class="flex items-center space-x-3">
-                  <i class="fas fa-binoculars text-steel-blue w-5"></i>
-                  <span class="font-medium text-military-black">Intelligence</span>
-                </div>
-                <div class="flex items-center space-x-2">
-                  <span class="notification-badge w-2 h-2 rounded-full bg-alert-red"></span>
-                  <i class="fas fa-chevron-down text-camo-dark text-xs transition-transform group-[.expanded]:rotate-180"></i>
-                </div>
-              </button>
+          <!-- Draggable Squares -->
+          @for (square of squares(); track square.id) {
+            <div
+              class="colored-square"
+              [ngStyle]="getSquareStyles(square)"
+              [style.zIndex]="square.id"
+              appDraggable
+              [dragHandle]="'.square-content'"
+              [dragBoundary]="draggableArea"
+              [dragSnapToGrid]="false"
+              [dragUseTransform]="true"
+              (dragStart)="onSquareDragStart($event, square.id)"
+              (dragMove)="onSquareDragMove($event, square.id)"
+              (dragEnd)="onSquareDragEnd($event, square.id)">
 
-              <!-- Mobile Submenu -->
-              <ul id="mobileIntelSubmenu" class="hidden ml-4 mt-1 space-y-1 border-l border-camo-sand pl-3">
-                <li>
-                  <a href="#" class="flex items-center space-x-3 p-2 rounded hover:bg-desert-tan/30 transition-colors" onclick="toggleMobileMenu()">
-                    <i class="fas fa-map-marked-alt text-camo-olive text-sm w-5"></i>
-                    <span class="text-sm text-military-black">Geospatial Intel</span>
-                  </a>
-                </li>
-                <li>
-                  <button class="flex items-center justify-between w-full p-2 rounded hover:bg-desert-tan/30 transition-colors group"
-                          onclick="toggleSubmenu('mobileSigintSubmenu', this)">
-                    <div class="flex items-center space-x-3">
-                      <i class="fas fa-satellite-dish text-camo-olive text-sm w-5"></i>
-                      <span class="text-sm text-military-black">SIGINT</span>
+              <div class="square-content">
+                <!-- Coordinate Display -->
+                @if (showCoordinatesPanel()) {
+                  <div class="coordinates-display">
+                    <div class="coordinate">
+                      <span class="coord-label">X:</span>
+                      <span class="coord-value">{{ square.position.x }}</span>
                     </div>
-                    <i class="fas fa-chevron-right text-camo-dark text-xs transition-transform group-[.expanded]:rotate-90"></i>
-                  </button>
+                    <div class="coordinate">
+                      <span class="coord-label">Y:</span>
+                      <span class="coord-value">{{ square.position.y }}</span>
+                    </div>
+                  </div>
+                }
 
-                  <!-- Nested Mobile Submenu -->
-                  <ul id="mobileSigintSubmenu" class="hidden ml-4 mt-1 space-y-1 border-l border-camo-sand pl-3">
-                    <li>
-                      <a href="#" class="flex items-center space-x-3 p-2 rounded hover:bg-desert-tan/20 transition-colors" onclick="toggleMobileMenu()">
-                        <i class="fas fa-wifi text-camo-gray text-xs w-5"></i>
-                        <span class="text-xs text-military-black">Signals Analysis</span>
-                      </a>
-                    </li>
-                    <li>
-                      <a href="#" class="flex items-center space-x-3 p-2 rounded hover:bg-desert-tan/20 transition-colors" onclick="toggleMobileMenu()">
-                        <i class="fas fa-code text-camo-gray text-xs w-5"></i>
-                        <span class="text-xs text-military-black">Code Breaking</span>
-                      </a>
-                    </li>
-                  </ul>
-                </li>
-                <li>
-                  <a href="#" class="flex items-center space-x-3 p-2 rounded hover:bg-desert-tan/30 transition-colors" onclick="toggleMobileMenu()">
-                    <i class="fas fa-user-secret text-camo-olive text-sm w-5"></i>
-                    <span class="text-sm text-military-black">HUMINT</span>
-                  </a>
-                </li>
-              </ul>
-            </li>
+                <!-- Square Info -->
+                <div class="square-info">
+                  <div class="square-name">{{ square.name }}</div>
+                  <div class="square-color" [style.background-color]="square.color"></div>
+                  <div class="square-id">#{{ square.id }}</div>
+                </div>
 
-            <!-- Emergency (Mobile) -->
-            <li class="mt-6">
-              <a href="#" class="menu-item flex items-center space-x-3 p-3 rounded-lg border border-alert-red/30 bg-alert-red/5 hover:bg-alert-red/10 transition-colors group" onclick="toggleMobileMenu()">
-                <i class="fas fa-exclamation-triangle text-alert-red w-5"></i>
-                <span class="font-medium text-alert-red">Emergency Protocol</span>
-              </a>
-            </li>
-          </ul>
-        </nav>
-      </div>
-    </div>
-
-    <!-- Top Navigation Bar (for desktop) -->
-    <div class="hidden lg:block bg-white border-b border-camo-tan shadow-military-sm">
-      <div class="flex items-center justify-between px-6 py-4">
-        <div class="flex items-center space-x-6">
-          <!-- Breadcrumb -->
-          <nav class="flex items-center space-x-2 text-sm">
-            <a href="#" class="text-camo-dark hover:text-steel-blue transition-colors">Command Center</a>
-            <i class="fas fa-chevron-right text-camo-gray text-xs"></i>
-            <span class="text-military-black font-medium">Dashboard</span>
-          </nav>
-
-          <!-- Quick Stats -->
-          <div class="hidden xl:flex items-center space-x-4">
-            <div class="flex items-center space-x-2">
-              <div class="w-2 h-2 rounded-full bg-success-green"></div>
-              <span class="text-xs text-camo-dark">System: ONLINE</span>
-            </div>
-            <div class="text-xs text-camo-dark">
-              Active Missions: <span class="font-bold text-steel-blue">3</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- Top Right Controls -->
-        <div class="flex items-center space-x-4">
-          <!-- Search -->
-          <div class="relative">
-            <input type="text"
-                   placeholder="Search intel..."
-                   class="pl-10 pr-4 py-2 w-64 border border-camo-sand rounded-lg focus:outline-none focus:border-steel-blue focus:ring-1 focus:ring-steel-blue/30 text-sm">
-            <i class="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-camo-olive"></i>
-          </div>
-
-          <!-- Notifications -->
-          <div class="relative">
-            <button class="p-2 hover:bg-desert-tan/50 rounded-lg transition-colors relative">
-              <i class="fas fa-bell text-camo-dark"></i>
-              <span class="notification-badge absolute top-1 right-1 w-2 h-2 rounded-full bg-alert-red"></span>
-            </button>
-
-            <!-- Notification Dropdown -->
-            <div class="absolute right-0 top-full mt-2 w-80 bg-white rounded-lg shadow-military-lg border border-camo-tan hidden" id="notificationDropdown">
-              <div class="p-4 border-b border-camo-sand">
-                <div class="flex items-center justify-between">
-                  <h3 class="font-bold text-military-black">Alerts</h3>
-                  <span class="text-xs text-steel-blue cursor-pointer hover:underline">Mark all read</span>
+                <!-- Drag Hint -->
+                <div class="drag-hint">
+                  <span class="drag-icon">☰</span>
+                  <span class="drag-text">Drag me</span>
                 </div>
               </div>
-              <div class="max-h-80 overflow-y-auto">
-                <!-- Notification items would go here -->
+            </div>
+          }
+
+          <!-- Coordinates Overlay -->
+          @if (showCoordinatesPanel()) {
+            <div class="coordinates-overlay">
+              <div class="overlay-header">
+                <h3>📐 Live Coordinates</h3>
+                <small>Top-left corner positions</small>
+              </div>
+              <div class="coordinates-list">
+                @for (square of squares(); track square.id) {
+                  <div class="coordinate-item" [style.border-left-color]="square.color">
+                    <div class="coord-square" [style.background-color]="square.color"></div>
+                    <div class="coord-details">
+                      <div class="coord-name">{{ square.name }}</div>
+                      <div class="coord-position">
+                        <code>({{ square.position.x }}, {{ square.position.y }})</code>
+                      </div>
+                    </div>
+                  </div>
+                }
+              </div>
+              <!-- FIXED: Use signal instead of direct element access -->
+              <div class="overlay-footer">
+                <small>Total squares: {{ squares().length }}</small>
+                <small>Boundary: {{ draggableAreaDimensions().width }}px × {{ draggableAreaDimensions().height }}px</small>
               </div>
             </div>
-          </div>
+          }
+        </div>
 
-          <!-- User Menu -->
-          <div class="relative">
-            <button class="flex items-center space-x-3 p-2 hover:bg-desert-tan/50 rounded-lg transition-colors"
-                    onclick="toggleDropdown('userDropdown')">
-              <div class="w-8 h-8 rounded-full bg-steel-blue flex items-center justify-center">
-                <i class="fas fa-user text-white text-sm"></i>
-              </div>
-              <div class="text-left hidden xl:block">
-                <p class="text-sm font-medium text-military-black">Operator-742</p>
-                <p class="text-xs text-camo-dark">Captain • TS Clearance</p>
-              </div>
-              <i class="fas fa-chevron-down text-camo-dark text-xs"></i>
-            </button>
-
-            <!-- User Dropdown -->
-            <div class="absolute right-0 top-full mt-2 w-48 bg-white rounded-lg shadow-military-lg border border-camo-tan hidden" id="userDropdown">
-              <div class="py-2">
-                <a href="#" class="flex items-center space-x-3 px-4 py-2 hover:bg-desert-tan/30 transition-colors">
-                  <i class="fas fa-user text-steel-blue w-4"></i>
-                  <span class="text-sm text-military-black">Profile</span>
-                </a>
-                <a href="#" class="flex items-center space-x-3 px-4 py-2 hover:bg-desert-tan/30 transition-colors">
-                  <i class="fas fa-cog text-steel-blue w-4"></i>
-                  <span class="text-sm text-military-black">Settings</span>
-                </a>
-                <div class="border-t border-camo-sand my-2"></div>
-                <a href="#" class="flex items-center space-x-3 px-4 py-2 hover:bg-desert-tan/30 transition-colors text-alert-red">
-                  <i class="fas fa-sign-out-alt w-4"></i>
-                  <span class="text-sm">Logout</span>
-                </a>
-              </div>
+        <!-- Instructions -->
+        <div class="instructions">
+          <h3>📋 How to Use</h3>
+          <div class="instruction-grid">
+            <div class="instruction">
+              <div class="instruction-icon">👆</div>
+              <div class="instruction-text">Click and drag any square to move it</div>
+            </div>
+            <div class="instruction">
+              <div class="instruction-icon">📍</div>
+              <div class="instruction-text">Coordinates update in real-time</div>
+            </div>
+            <div class="instruction">
+              <div class="instruction-icon">💾</div>
+              <div class="instruction-text">Positions are saved automatically</div>
+            </div>
+            <div class="instruction">
+              <div class="instruction-icon">⚙️</div>
+              <div class="instruction-text">Use buttons to align or randomize</div>
             </div>
           </div>
         </div>
       </div>
-    </div>
 
-    <!-- Main Content -->
-    <div class="p-4 lg:p-6">
-      <div class="max-w-7xl mx-auto">
-
-        <!-- Dashboard Header -->
-        <div class="mb-6">
-          <h2 class="text-2xl lg:text-3xl font-bold uppercase tracking-wide text-military-black">
-            Command Dashboard
-          </h2>
-          <p class="text-camo-dark mt-2">Real-time operational overview and mission control</p>
-
-          <!-- Status Indicators -->
-          <div class="flex flex-wrap gap-4 mt-4">
-            <div class="flex items-center bg-white border border-camo-tan rounded-lg px-4 py-3 shadow-military-sm">
-              <div class="w-3 h-3 rounded-full bg-success-green mr-3"></div>
-              <div>
-                <p class="text-sm font-semibold text-military-black">System Status</p>
-                <p class="text-xs text-camo-dark">All systems operational</p>
-              </div>
-            </div>
-            <div class="flex items-center bg-white border border-camo-tan rounded-lg px-4 py-3 shadow-military-sm">
-              <div class="w-3 h-3 rounded-full bg-steel-blue mr-3"></div>
-              <div>
-                <p class="text-sm font-semibold text-military-black">Active Missions</p>
-                <p class="text-xs text-camo-dark">3 missions in progress</p>
-              </div>
-            </div>
-            <div class="flex items-center bg-white border border-camo-tan rounded-lg px-4 py-3 shadow-military-sm">
-              <div class="w-3 h-3 rounded-full bg-alert-orange mr-3"></div>
-              <div>
-                <p class="text-sm font-semibold text-military-black">Alert Level</p>
-                <p class="text-xs text-camo-dark">Elevated - Level 2</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Content Grid -->
-        <div class="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-
-          <!-- Mission Status Card -->
-          <div class="bg-white rounded-lg border border-camo-tan shadow-military-sm p-6">
-            <div class="flex items-center justify-between mb-4">
-              <h3 class="font-bold text-lg text-military-black">Active Missions</h3>
-              <span class="text-xs bg-steel-blue text-white px-2 py-1 rounded">LIVE</span>
-            </div>
-            <!-- Mission content would go here -->
-          </div>
-
-          <!-- System Status Card -->
-          <div class="bg-white rounded-lg border border-camo-tan shadow-military-sm p-6">
-            <div class="flex items-center justify-between mb-4">
-              <h3 class="font-bold text-lg text-military-black">System Health</h3>
-              <i class="fas fa-server text-steel-blue"></i>
-            </div>
-            <!-- System status content would go here -->
-          </div>
-
-          <!-- Communications Card -->
-          <div class="bg-white rounded-lg border border-camo-tan shadow-military-sm p-6">
-            <div class="flex items-center justify-between mb-4">
-              <h3 class="font-bold text-lg text-military-black">Communications</h3>
-              <span class="text-xs bg-success-green text-white px-2 py-1 rounded">SECURE</span>
-            </div>
-            <!-- Communications content would go here -->
-          </div>
-        </div>
-
-        <!-- Demo Instructions -->
-        <div class="mt-8 p-6 bg-desert-tan/30 border border-camo-tan rounded-lg">
-          <h3 class="font-bold text-lg text-military-black mb-3">Navigation Features Demo</h3>
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <p class="text-sm text-camo-dark mb-2"><i class="fas fa-check text-success-green mr-2"></i> <strong>Multi-level expandable menus</strong> - Click arrows to expand/collapse</p>
-              <p class="text-sm text-camo-dark mb-2"><i class="fas fa-check text-success-green mr-2"></i> <strong>Adaptive design</strong> - Responsive for all screen sizes</p>
-              <p class="text-sm text-camo-dark mb-2"><i class="fas fa-check text-success-green mr-2"></i> <strong>Military styling</strong> - Uses camo color palette</p>
-            </div>
-            <div>
-              <p class="text-sm text-camo-dark mb-2"><i class="fas fa-check text-success-green mr-2"></i> <strong>Section dividers</strong> - Clear visual separation</p>
-              <p class="text-sm text-camo-dark mb-2"><i class="fas fa-check text-success-green mr-2"></i> <strong>Status indicators</strong> - Badges, dots, and labels</p>
-              <p class="text-sm text-camo-dark mb-2"><i class="fas fa-check text-success-green mr-2"></i> <strong>Mobile menu</strong> - Slide-out menu on mobile</p>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
+      <!-- Router Outlet -->
+      <router-outlet></router-outlet>
+    </section>
   </main>
 </div>

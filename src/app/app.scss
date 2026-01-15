@@ -1,68 +1,499 @@
-.app-root {
-  @apply min-h-screen bg-military-white text-military-black;
-  font-family: var(--font-sans);
+// app.component.scss
+
+// Demo Styles
+.demo-container {
+  background: white;
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+  margin-bottom: 30px;
 }
 
-.layout-blank {
-  @apply min-h-screen military-grid-bg;
+.demo-header {
+  margin-bottom: 24px;
+
+  h2 {
+    margin: 0 0 8px 0;
+    color: #1a237e;
+  }
+
+  .demo-subtitle {
+    color: #666;
+    margin-bottom: 20px;
+  }
 }
 
-.layout-dashboard {
-  @apply min-h-screen flex flex-col;
+.demo-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
 
-  &.sidebar-collapsed {
-    .app-main.with-sidebar {
-      @apply ml-0 md:ml-20;
+  .control-btn {
+    background: #f8f9fa;
+    border: 2px solid #e9ecef;
+    border-radius: 8px;
+    padding: 10px 16px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 500;
+    color: #495057;
+    transition: all 0.2s ease;
+
+    &:hover {
+      background: #e9ecef;
+      transform: translateY(-2px);
+    }
+
+    .icon {
+      font-size: 16px;
+    }
+  }
+
+  .alignment-controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-left: auto;
+
+    .control-label {
+      font-weight: 500;
+      color: #666;
+    }
+
+    .align-btn {
+      background: #fff;
+      border: 1px solid #dee2e6;
+      border-radius: 6px;
+      padding: 6px 12px;
+      font-size: 13px;
+      cursor: pointer;
+
+      &:hover {
+        background: #f8f9fa;
+      }
     }
   }
 }
 
-.app-main {
-  @apply flex-1 p-4 md:p-6 transition-all duration-300;
+// Draggable Area
+.draggable-area {
+  position: relative;
+  width: 100%;
+  height: 500px;
+  background: #f8f9fa;
+  border: 2px dashed #dee2e6;
+  border-radius: 8px;
+  overflow: hidden;
+  margin-bottom: 24px;
 
-  &.with-sidebar {
-    @apply ml-0 md:ml-64;
+  .grid-background {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-image:
+      linear-gradient(rgba(0, 0, 0, 0.05) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0, 0, 0, 0.05) 1px, transparent 1px);
+    background-size: 20px 20px;
+    opacity: 0.5;
   }
-}
 
-.main-container {
-  @apply max-w-7xl mx-auto;
-}
+  .axis-label {
+    position: absolute;
+    font-size: 12px;
+    color: #999;
+    font-weight: 500;
 
-.page-header {
-  @apply flex flex-col md:flex-row md:items-center justify-between mb-6 pb-4 border-b border-camo-gray;
-}
+    &.x-axis {
+      bottom: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+    }
 
-.page-title {
-  @apply text-2xl md:text-3xl font-bold text-military-black mb-4 md:mb-0;
-}
-
-.page-actions {
-  @apply flex items-center gap-2;
-}
-
-.page-content {
-  @apply bg-military-white rounded-military-lg shadow-military-sm p-4 md:p-6;
-}
-
-.global-loading {
-  @apply fixed inset-0 z-50 flex items-center justify-center bg-military-black/70;
-
-  .loading-spinner {
-    @apply bg-camo-tan p-8 rounded-military-lg shadow-military-lg flex flex-col items-center;
-
-    .spinner {
-      @apply w-12 h-12 border-4 border-camo-olive border-t-transparent rounded-full animate-spin;
+    &.y-axis {
+      top: 50%;
+      left: 10px;
+      transform: translateY(-50%) rotate(-90deg);
+      transform-origin: left center;
     }
   }
 }
 
-// Toast Container
-.toast-container {
-  @apply fixed top-4 right-4 z-40 flex flex-col gap-2;
+// Colored Squares
+.colored-square {
+  position: absolute;
+  width: 150px;
+  height: 150px;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  cursor: move;
+  user-select: none;
+  transition: box-shadow 0.2s ease;
+
+  &.dragging {
+    cursor: grabbing;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.25);
+    z-index: 1000 !important;
+  }
+
+  &:hover {
+    box-shadow: 0 6px 25px rgba(0, 0, 0, 0.2);
+  }
+
+  .square-content {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 12px;
+  }
+
+  .coordinates-display {
+    background: rgba(0, 0, 0, 0.7);
+    color: white;
+    padding: 6px 8px;
+    border-radius: 6px;
+    font-size: 11px;
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 8px;
+
+    .coordinate {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+
+      .coord-label {
+        font-weight: bold;
+      }
+
+      .coord-value {
+        font-family: 'Monaco', 'Courier New', monospace;
+        background: rgba(255, 255, 255, 0.1);
+        padding: 2px 6px;
+        border-radius: 3px;
+      }
+    }
+  }
+
+  .square-info {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+
+    .square-name {
+      font-weight: 600;
+      font-size: 14px;
+      color: white;
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+      text-align: center;
+    }
+
+    .square-color {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      border: 2px solid white;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    }
+
+    .square-id {
+      font-size: 10px;
+      color: rgba(255, 255, 255, 0.8);
+      background: rgba(0, 0, 0, 0.3);
+      padding: 2px 6px;
+      border-radius: 10px;
+    }
+  }
+
+  .drag-hint {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    font-size: 10px;
+    color: rgba(255, 255, 255, 0.8);
+    opacity: 0.7;
+
+    .drag-icon {
+      font-size: 14px;
+    }
+
+    .drag-text {
+      font-weight: 500;
+    }
+  }
 }
 
-// Modal Container
-.modal-container {
-  @apply fixed inset-0 z-40 flex items-center justify-center p-4 bg-military-black/50;
+// Coordinates Overlay
+.coordinates-overlay {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  background: white;
+  border-radius: 8px;
+  padding: 16px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  width: 280px;
+  z-index: 100;
+
+  .overlay-header {
+    margin-bottom: 16px;
+
+    h3 {
+      margin: 0 0 4px 0;
+      font-size: 16px;
+    }
+
+    small {
+      color: #666;
+    }
+  }
+
+  .coordinates-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+
+    .coordinate-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px;
+      background: #f8f9fa;
+      border-radius: 6px;
+      border-left: 4px solid;
+
+      .coord-square {
+        width: 24px;
+        height: 24px;
+        border-radius: 4px;
+        flex-shrink: 0;
+      }
+
+      .coord-details {
+        flex: 1;
+
+        .coord-name {
+          font-weight: 500;
+          font-size: 13px;
+          margin-bottom: 2px;
+        }
+
+        .coord-position {
+          font-family: 'Monaco', 'Courier New', monospace;
+          font-size: 12px;
+          color: #666;
+
+          code {
+            background: #e9ecef;
+            padding: 2px 6px;
+            border-radius: 3px;
+          }
+        }
+      }
+    }
+  }
+
+  .overlay-footer {
+    margin-top: 16px;
+    padding-top: 12px;
+    border-top: 1px solid #e9ecef;
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    color: #888;
+  }
+}
+
+// Instructions
+.instructions {
+  background: #f8f9fa;
+  border-radius: 8px;
+  padding: 20px;
+  margin-top: 30px;
+
+  h3 {
+    margin: 0 0 16px 0;
+    color: #495057;
+  }
+
+  .instruction-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+
+    .instruction {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+
+      .instruction-icon {
+        font-size: 24px;
+        width: 48px;
+        height: 48px;
+        background: white;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+      }
+
+      .instruction-text {
+        font-size: 14px;
+        color: #666;
+      }
+    }
+  }
+}
+
+// Header Styles
+.app-header {
+  background: linear-gradient(135deg, #1a237e 0%, #283593 100%);
+  color: white;
+  padding: 0 24px;
+  margin-bottom: 24px;
+
+  .header-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    height: 64px;
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+
+      .sidebar-toggle {
+        background: rgba(255, 255, 255, 0.1);
+        border: none;
+        color: white;
+        width: 40px;
+        height: 40px;
+        border-radius: 8px;
+        cursor: pointer;
+
+        &:hover {
+          background: rgba(255, 255, 255, 0.2);
+        }
+      }
+
+      .page-title {
+        margin: 0;
+        font-size: 20px;
+        font-weight: 500;
+      }
+    }
+
+    .header-right {
+      .user-btn {
+        background: rgba(255, 255, 255, 0.1);
+        border: none;
+        color: white;
+        padding: 8px 16px;
+        border-radius: 20px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+
+        &:hover {
+          background: rgba(255, 255, 255, 0.2);
+        }
+      }
+    }
+  }
+}
+
+// Loading & Error Styles
+.loading-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(255, 255, 255, 0.9);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+}
+
+.error-banner {
+  background: #ffebee;
+  border: 1px solid #ffcdd2;
+  color: #c62828;
+  padding: 12px 16px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+
+  .close-btn {
+    background: none;
+    border: none;
+    color: #c62828;
+    font-size: 20px;
+    cursor: pointer;
+    padding: 0;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+}
+
+// Responsive
+@media (max-width: 768px) {
+  .demo-controls {
+    flex-direction: column;
+    align-items: stretch;
+
+    .alignment-controls {
+      margin-left: 0;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+  }
+
+  .coordinates-overlay {
+    position: static;
+    width: auto;
+    margin-top: 20px;
+  }
+
+  .draggable-area {
+    height: 400px;
+  }
+
+  .colored-square {
+    width: 120px;
+    height: 120px;
+
+    .coordinates-display {
+      padding: 4px;
+      font-size: 10px;
+    }
+
+    .square-name {
+      font-size: 12px;
+    }
+  }
+
+  .instruction-grid {
+    grid-template-columns: 1fr !important;
+  }
 }
