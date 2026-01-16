@@ -144,13 +144,13 @@ export class App implements OnInit, OnDestroy {
   }
 
   onSquareDragMove(position: DragPosition, squareId: number): void {
-    this.squares.update(squares =>
-      squares.map(square =>
-        square.id === squareId
-          ? { ...square, position: { x: position.absoluteX, y: position.absoluteY } }
-          : square
-      )
-    );
+    // this.squares.update(squares =>
+    //   squares.map(square =>
+    //     square.id === squareId
+    //       ? { ...square, position: { x: position.deltaX, y: position.deltaY } }
+    //       : square
+    //   )
+    // );
   }
 
   onSquareDragEnd(position: DragPosition, squareId: number): void {

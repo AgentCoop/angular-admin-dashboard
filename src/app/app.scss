@@ -126,8 +126,8 @@
 // Colored Squares
 .colored-square {
   position: absolute;
-  width: 150px;
-  height: 150px;
+  width: 180px;
+  height: 180px;
   border-radius: 12px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
   cursor: move;
@@ -242,7 +242,7 @@
   border-radius: 8px;
   padding: 16px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
-  width: 280px;
+  width: 360px;
   z-index: 100;
 
   .overlay-header {

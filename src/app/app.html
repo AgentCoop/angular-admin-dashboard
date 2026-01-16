@@ -103,11 +103,11 @@
                   <div class="coordinates-display">
                     <div class="coordinate">
                       <span class="coord-label">X:</span>
-                      <span class="coord-value">{{ square.position.x }}</span>
+                      <span class="coord-value">{{ square.position.x | number:'1.2-2' }}</span>
                     </div>
                     <div class="coordinate">
                       <span class="coord-label">Y:</span>
-                      <span class="coord-value">{{ square.position.y }}</span>
+                      <span class="coord-value">{{ square.position.y | number:'1.2-2' }}</span>
                     </div>
                   </div>
                 }
@@ -142,7 +142,7 @@
                     <div class="coord-details">
                       <div class="coord-name">{{ square.name }}</div>
                       <div class="coord-position">
-                        <code>({{ square.position.x }}, {{ square.position.y }})</code>
+                        <code>({{ square.position.x | number:'1.2-2' }}, {{ square.position.y | number:'1.2-2' }})</code>
                       </div>
                     </div>
                   </div>

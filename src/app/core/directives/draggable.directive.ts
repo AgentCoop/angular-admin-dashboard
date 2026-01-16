@@ -11,31 +11,77 @@ export interface DragPosition {
   y: number;
   absoluteX: number;
   absoluteY: number;
+  deltaX: number;
+  deltaY: number;
   isDragging: boolean;
 }
 
-export interface DragConstraints {
-  minX?: number;
-  maxX?: number;
-  minY?: number;
-  maxY?: number;
-  element?: HTMLElement;
+export interface DraggableDirectiveAPI {
+  setPosition(x: number, y: number, animate?: boolean): void;
+  getPosition(): { x: number; y: number };
+  resetPosition(): void;
+  setDisabled(disabled: boolean): void;
+  getDelta(): { deltaX: number; deltaY: number };
+  getCurrentDelta(): { deltaX: number; deltaY: number };
+  getDragState(): { isDragging: boolean; startPosition: { x: number; y: number } };
+  updateConfig(config: Partial<DraggableConfig>): void;
+}
+
+export interface DraggableConfig {
+  dragHandle?: HTMLElement | string;
+  dragBoundary?: HTMLElement | string;
+  dragDisabled: boolean;
+  dragSnapToGrid: boolean;
+  dragGridSize: number;
+  dragUseTransform: boolean;
+  dragConvertToAbsolute: boolean;
+  dragAutoPosition: boolean;
+}
+
+/**
+ * Helper function to get mouse coordinates in document coordinate system
+ * This accounts for page scrolling
+ */
+export function getDocumentCoordinates(event: PointerEvent | MouseEvent): { x: number; y: number } {
+  // Use pageX/pageY for document coordinates (includes scroll offset)
+  // Fallback to clientX/clientY + scroll offset for compatibility
+  const scrollX = window.pageXOffset || document.documentElement.scrollLeft || document.body.scrollLeft || 0;
+  const scrollY = window.pageYOffset || document.documentElement.scrollTop || document.body.scrollTop || 0;
+
+  return {
+    x: event.pageX !== undefined ? event.pageX : event.clientX + scrollX,
+    y: event.pageY !== undefined ? event.pageY : event.clientY + scrollY
+  };
+}
+
+/**
+ * Helper function to get element position in document coordinate system
+ */
+export function getElementDocumentPosition(element: HTMLElement): { x: number; y: number } {
+  const rect = element.getBoundingClientRect();
+  const scrollX = window.pageXOffset || document.documentElement.scrollLeft || document.body.scrollLeft || 0;
+  const scrollY = window.pageYOffset || document.documentElement.scrollTop || document.body.scrollTop || 0;
+
+  return {
+    x: rect.left + scrollX,
+    y: rect.top + scrollY
+  };
 }
 
 @Directive({
   selector: '[appDraggable]',
   standalone: true,
-  exportAs: 'appDraggable' // Allows template reference
+  exportAs: 'appDraggable'
 })
-export class DraggableDirective implements OnInit, OnDestroy {
+export class DraggableDirective implements OnInit, OnDestroy, DraggableDirectiveAPI {
   @Input() dragHandle?: HTMLElement | string;
   @Input() dragBoundary?: HTMLElement | string;
   @Input() dragDisabled = false;
   @Input() dragSnapToGrid = false;
   @Input() dragGridSize = 10;
-  @Input() dragUseTransform = true; // Use transform during drag
-  @Input() dragConvertToAbsolute = true; // Convert to absolute on drop
-  @Input() dragAutoPosition = false; // Auto-calc initial position
+  @Input() dragUseTransform = true;
+  @Input() dragConvertToAbsolute = true;
+  @Input() dragAutoPosition = false;
 
   @Output() dragStart = new EventEmitter<PointerEvent>();
   @Output() dragMove = new EventEmitter<DragPosition>();
@@ -50,15 +96,19 @@ export class DraggableDirective implements OnInit, OnDestroy {
   private dragSubscriptions = new Subscription();
   private destroy$ = new Subject<void>();
 
-  // State
-  private startPosition = { x: 0, y: 0 };
-  private currentPosition = { x: 0, y: 0 };
-  private transformOffset = { x: 0, y: 0 };
-  private initialRect?: DOMRect;
+  // State - all coordinates in document coordinate system
+  private initialCursorPosition = { x: 0, y: 0 }; // Cursor position when drag starts
+  private elementPosition = { x: 0, y: 0 }; // Element position when drag starts
+  private currentPosition = { x: 0, y: 0 }; // Current element position
+  private transformOffset = { x: 0, y: 0 }; // Current transform offset
+  private currentDelta = { x: 0, y: 0 }; // Current delta from start
+  private constrainedDelta = { x: 0, y: 0 }; // Delta after constraints applied
 
   // Element references
   private handleElement?: HTMLElement;
   private boundaryElement?: HTMLElement;
+  private boundaryRect?: DOMRect; // In document coordinates
+  private elementRect?: DOMRect; // Element dimensions
 
   constructor(
     private elementRef: ElementRef<HTMLElement>,
@@ -71,7 +121,9 @@ export class DraggableDirective implements OnInit, OnDestroy {
     this.setupDrag();
 
     if (this.dragAutoPosition) {
-      this.calculateInitialPosition();
+      //this.calculateInitialPosition();
+    } else {
+      this.readElementPosition();
     }
   }
 
@@ -103,14 +155,13 @@ export class DraggableDirective implements OnInit, OnDestroy {
     this.renderer.setStyle(this.handleElement, 'cursor', 'grab');
   }
 
-  private calculateInitialPosition() {
-    // Get computed position to initialize coordinates
+  private readElementPosition() {
+    // Read current position from element's style (already in document coordinates)
     const style = window.getComputedStyle(this.elementRef.nativeElement);
     const left = parseFloat(style.left) || 0;
     const top = parseFloat(style.top) || 0;
 
-    this.currentPosition = { x: left, y: top };
-    this.updateElementPosition();
+    this.elementPosition = { x: left, y: top };
   }
 
   private setupDrag() {
@@ -149,20 +200,45 @@ export class DraggableDirective implements OnInit, OnDestroy {
 
   private onDragStart(event: PointerEvent) {
     event.preventDefault();
+    event.stopPropagation();
+
     this.isDragging = true;
 
     // Capture pointer for consistent dragging
     (event.target as HTMLElement).setPointerCapture(event.pointerId);
 
-    // Save initial positions
-    this.initialRect = this.elementRef.nativeElement.getBoundingClientRect();
-    this.startPosition = { x: event.clientX, y: event.clientY };
+    // Store initial cursor position in document coordinates
+    this.initialCursorPosition = { x: event.clientX, y: event.clientY };
 
-    // Reset transform offset for new drag session
+    this.readElementPosition();
+
+    // Store element's current position and dimensions
+    this.elementRect = this.elementRef.nativeElement.getBoundingClientRect();
+
+    // Get boundary rectangle in document coordinates if exists
+    if (this.boundaryElement) {
+      const boundaryClientRect = this.boundaryElement.getBoundingClientRect();
+      const scrollX = window.pageXOffset || document.documentElement.scrollLeft || 0;
+      const scrollY = window.pageYOffset || document.documentElement.scrollTop || 0;
+
+      this.boundaryRect = new DOMRect(
+        boundaryClientRect.left + scrollX,
+        boundaryClientRect.top + scrollY,
+        boundaryClientRect.width,
+        boundaryClientRect.height
+      );
+    }
+
+    // Reset offsets
     this.transformOffset = { x: 0, y: 0 };
+    this.currentDelta = { x: 0, y: 0 };
+    this.constrainedDelta = { x: 0, y: 0 };
 
     // Update cursor
     this.renderer.setStyle(this.handleElement, 'cursor', 'grabbing');
+
+    // Disable transitions during drag for smooth movement
+    this.renderer.setStyle(this.elementRef.nativeElement, 'transition', 'none');
 
     // Emit event inside Angular zone
     this.ngZone.run(() => {
@@ -173,46 +249,67 @@ export class DraggableDirective implements OnInit, OnDestroy {
   private onDragMove(event: PointerEvent) {
     if (!this.isDragging) return;
 
-    // Calculate delta
-    const deltaX = event.clientX - this.startPosition.x;
-    const deltaY = event.clientY - this.startPosition.y;
+    event.preventDefault();
 
-    // Apply grid snapping
-    let newX = deltaX;
-    let newY = deltaY;
+    // Get current cursor position in document coordinates
+    const currentCursorPosition = getDocumentCoordinates(event);
+
+    // Calculate the difference from initial cursor position
+    const deltaX = event.clientX - this.initialCursorPosition.x;
+    const deltaY = event.clientY - this.initialCursorPosition.y;
+
+    // Store current raw delta
+    this.currentDelta = { x: deltaX, y: deltaY };
+
+    // Apply grid snapping to the delta
+    let snappedDeltaX = deltaX;
+    let snappedDeltaY = deltaY;
 
     if (this.dragSnapToGrid) {
-      newX = Math.round(deltaX / this.dragGridSize) * this.dragGridSize;
-      newY = Math.round(deltaY / this.dragGridSize) * this.dragGridSize;
+      snappedDeltaX = Math.round(deltaX / this.dragGridSize) * this.dragGridSize;
+      snappedDeltaY = Math.round(deltaY / this.dragGridSize) * this.dragGridSize;
     }
 
+    // Calculate proposed new position (using SNAPPED delta, not raw delta)
+    const proposedX = this.elementPosition.x + snappedDeltaX;
+    const proposedY = this.elementPosition.y + snappedDeltaY;
+
     // Apply boundary constraints
-    const constrained = this.applyBoundaryConstraints(newX, newY);
+    const constrained = this.applyBoundaryConstraints(proposedX, proposedY);
 
-    // Update transform offset
-    this.transformOffset = { x: constrained.x, y: constrained.y };
+    // Calculate the actual movement after constraints (constrained delta)
+    const actualDeltaX = constrained.x - this.elementPosition.x;
+    const actualDeltaY = constrained.y - this.elementPosition.y;
 
-    // Update element position
-    this.updateElementPosition();
+    // Store constrained delta
+    this.constrainedDelta = {
+      x: actualDeltaX,
+      y: actualDeltaY,
+    };
 
-    // Calculate absolute position
-    const absoluteX = this.currentPosition.x + constrained.x;
-    const absoluteY = this.currentPosition.y + constrained.y;
+    // Update transform offset (use constrained delta for visual transform)
+    this.transformOffset = {
+      x: deltaX,
+      y: deltaY,
+    };
+
+    // Update current position (for boundary calculations and emit)
+    this.currentPosition = { x: constrained.x, y: constrained.y };
+
+    // Apply transform immediately
+    this.applyTransform();
 
     // Emit event inside Angular zone
     this.ngZone.run(() => {
       this.dragMove.emit({
-        x: constrained.x,
-        y: constrained.y,
-        absoluteX,
-        absoluteY,
+        x: this.transformOffset.x,
+        y: this.transformOffset.y,
+        deltaX: deltaX,
+        deltaY: deltaY,
+        absoluteX: constrained.x,
+        absoluteY: constrained.y,
         isDragging: true
       });
-    });
-
-    // Request animation frame for smooth updates
-    requestAnimationFrame(() => {
-      this.applyTransform();
     });
   }
 
@@ -235,109 +332,129 @@ export class DraggableDirective implements OnInit, OnDestroy {
       this.resetTransform();
     }
 
-    // Calculate final absolute position
-    const absoluteX = this.currentPosition.x;
-    const absoluteY = this.currentPosition.y;
+    // Update element start position to match current position (for next drag)
+    this.elementPosition = { ...this.currentPosition };
 
     // Emit final position
     this.ngZone.run(() => {
       this.dragEnd.emit({
         x: this.transformOffset.x,
         y: this.transformOffset.y,
-        absoluteX,
-        absoluteY,
+        deltaX: this.currentDelta.x,
+        deltaY: this.currentDelta.y,
+        absoluteX: this.currentPosition.x,
+        absoluteY: this.currentPosition.y,
         isDragging: false
       });
 
-      this.positionChanged.emit({ x: absoluteX, y: absoluteY });
+      this.positionChanged.emit({
+        x: this.currentPosition.x,
+        y: this.currentPosition.y
+      });
     });
 
-    // Reset transform offset
+    // Reset offsets
     this.transformOffset = { x: 0, y: 0 };
+    this.currentDelta = { x: 0, y: 0 };
+    this.constrainedDelta = { x: 0, y: 0 };
+
+    // Clear cached rects
+    this.boundaryRect = undefined;
+    this.elementRect = undefined;
   }
 
-  private applyBoundaryConstraints(deltaX: number, deltaY: number): { x: number; y: number } {
-    if (!this.boundaryElement || !this.initialRect) {
-      return { x: deltaX, y: deltaY };
+  private applyBoundaryConstraints(proposedX: number, proposedY: number): { x: number; y: number } {
+    if (!this.boundaryElement || !this.boundaryRect || !this.elementRect) {
+      return { x: proposedX, y: proposedY };
     }
 
-    const boundaryRect = this.boundaryElement.getBoundingClientRect();
+    // Constrain within boundaries (all in document coordinates)
+    const minX = this.boundaryRect.left;
+    const maxX = this.boundaryRect.right - this.elementRect.width;
+    const minY = this.boundaryRect.top;
+    const maxY = this.boundaryRect.bottom - this.elementRect.height;
 
-    // Calculate proposed absolute position
-    const proposedLeft = this.currentPosition.x + deltaX;
-    const proposedTop = this.currentPosition.y + deltaY;
+    const constrainedX = Math.max(minX, Math.min(proposedX, maxX));
+    const constrainedY = Math.max(minY, Math.min(proposedY, maxY));
 
-    // Constrain within boundaries
-    const minX = 0;
-    const maxX = boundaryRect.width - this.initialRect.width;
-    const minY = 0;
-    const maxY = boundaryRect.height - this.initialRect.height;
-
-    const constrainedX = Math.max(minX, Math.min(proposedLeft, maxX));
-    const constrainedY = Math.max(minY, Math.min(proposedTop, maxY));
-
-    // Return constrained deltas
     return {
-      x: constrainedX - this.currentPosition.x,
-      y: constrainedY - this.currentPosition.y
+      x: constrainedX,
+      y: constrainedY
     };
-  }
-
-  private updateElementPosition() {
-    // Update current position (absolute)
-    if (this.dragConvertToAbsolute && !this.isDragging) {
-      // Only update during drag if we're not converting to absolute
-      this.currentPosition.x += this.transformOffset.x;
-      this.currentPosition.y += this.transformOffset.y;
-    }
   }
 
   private applyTransform() {
     if (this.dragUseTransform && this.isDragging) {
       // Apply transform during drag
       const transform = `translate(${this.transformOffset.x}px, ${this.transformOffset.y}px)`;
+      //const transform = `translate(-50%, -50%)
+      //translate(${this.transformOffset.x}px, ${this.transformOffset.y}px)`;
+     // const transform = `translate(-50%, -50%); translate(100px, 200px)`;
       this.renderer.setStyle(this.elementRef.nativeElement, 'transform', transform);
-
-      // Disable transitions during drag for smooth movement
-      this.renderer.setStyle(this.elementRef.nativeElement, 'transition', 'none');
     } else {
       this.resetTransform();
     }
   }
 
   private convertToAbsolutePosition() {
-    // Calculate new absolute position
-    const newX = this.currentPosition.x + this.transformOffset.x;
-    const newY = this.currentPosition.y + this.transformOffset.y;
-
-    // Update current position
-    this.currentPosition = { x: newX, y: newY };
-
     // Apply absolute positioning
-    this.renderer.setStyle(this.elementRef.nativeElement, 'left', `${newX}px`);
-    this.renderer.setStyle(this.elementRef.nativeElement, 'top', `${newY}px`);
+    const absX = this.elementPosition.x + this.transformOffset.x;
+    const absY = this.elementPosition.y + this.transformOffset.y;
+    this.renderer.setStyle(this.elementRef.nativeElement, 'left', `${absX}px`);
+    this.renderer.setStyle(this.elementRef.nativeElement, 'top', `${absY}px`);
 
-    // Reset transform
     this.resetTransform();
+  }
+
+  private resetTransform() {
+    this.renderer.setStyle(this.elementRef.nativeElement, 'transform', 'none');
 
     // Re-enable transitions
     this.renderer.removeStyle(this.elementRef.nativeElement, 'transition');
   }
 
-  private resetTransform() {
-    this.renderer.setStyle(this.elementRef.nativeElement, 'transform', 'none');
+  // Public API implementation
+
+  /**
+   * Get the raw delta (cursor movement without constraints)
+   * This shows how much the cursor has moved from the start
+   */
+  getDelta(): { deltaX: number; deltaY: number } {
+    return {
+      deltaX: this.currentDelta.x,
+      deltaY: this.currentDelta.y
+    };
   }
 
   /**
-   * Public API: Set position programmatically
+   * Get the constrained delta (actual element movement after applying boundaries)
+   * This shows how much the element has actually moved
    */
-  setPosition(x: number, y: number, animate = false) {
+  getCurrentDelta(): { deltaX: number; deltaY: number } {
+    return {
+      deltaX: this.constrainedDelta.x,
+      deltaY: this.constrainedDelta.y
+    };
+  }
+
+  /**
+   * Get the current drag state including start position
+   */
+  getDragState(): { isDragging: boolean; startPosition: { x: number; y: number } } {
+    return {
+      isDragging: this.isDragging,
+      startPosition: { ...this.elementPosition }
+    };
+  }
+
+  setPosition(x: number, y: number, animate = false): void {
     this.ngZone.run(() => {
       if (animate) {
         this.renderer.setStyle(this.elementRef.nativeElement, 'transition', 'left 0.3s ease, top 0.3s ease');
       }
 
       this.currentPosition = { x, y };
+      this.elementPosition = { x, y };
       this.renderer.setStyle(this.elementRef.nativeElement, 'left', `${x}px`);
       this.renderer.setStyle(this.elementRef.nativeElement, 'top', `${y}px`);
 
@@ -352,24 +469,15 @@ export class DraggableDirective implements OnInit, OnDestroy {
     });
   }
 
-  /**
-   * Public API: Get current position
-   */
   getPosition(): { x: number; y: number } {
     return { ...this.currentPosition };
   }
 
-  /**
-   * Public API: Reset to initial position
-   */
-  resetPosition() {
+  resetPosition(): void {
     this.setPosition(0, 0, true);
   }
 
-  /**
-   * Public API: Enable/disable dragging
-   */
-  setDisabled(disabled: boolean) {
+  setDisabled(disabled: boolean): void {
     this.dragDisabled = disabled;
     this.renderer.setStyle(
       this.handleElement,
@@ -378,9 +486,15 @@ export class DraggableDirective implements OnInit, OnDestroy {
     );
   }
 
+  updateConfig(config: Partial<DraggableConfig>): void {
+    Object.assign(this, config);
+    this.initializeElements(); // Re-initialize if needed
+  }
+
   ngOnDestroy() {
     this.destroy$.next();
     this.destroy$.complete();
     this.dragSubscriptions.unsubscribe();
   }
 }
+
