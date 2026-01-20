@@ -82,6 +82,43 @@
           <div class="axis-label x-axis">X Axis</div>
           <div class="axis-label y-axis">Y Axis</div>
 
+          <!-- Dropzone Container -->
+          <div class="dropzone-container">
+            <!-- Dropzone 1: Priority Area -->
+            <div
+              class="dropzone priority-dropzone"
+              appDropzone
+              [draggableSelector]="'.colored-square'"
+              [activeClass]="'priority-active'"
+              [overlapThreshold]="0.5"
+              (dragEnter)="onDragEnter($event, 'priority')"
+              (dragOver)="onDragOver($event, 'priority')"
+              (dragLeave)="onDragLeave($event, 'priority')"
+              (drop)="onDrop($event, 'priority')">
+
+              <div class="dropzone-content">
+                <div class="dropzone-icon">⭐</div>
+                <h3>Priority Zone</h3>
+                <p class="dropzone-description">High priority items go here</p>
+
+                <!-- Dropped items display -->
+                <div class="dropped-items">
+                  @for (item of droppedItems.priority; track item.id) {
+                    <div class="dropped-item" [style.background-color]="item.color">
+                      {{ item.name }}
+                    </div>
+                  }
+                </div>
+
+                <div class="dropzone-stats">
+                  <span class="stat">Items: {{ droppedItems.priority.length }}</span>
+                  <span class="stat">Last drop: {{ lastDropTime.priority | date:'HH:mm:ss' }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+
           <!-- Draggable Squares -->
           @for (square of squares(); track square.id) {
             <div

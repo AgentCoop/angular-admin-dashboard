@@ -5,16 +5,7 @@ import {
 } from '@angular/core';
 import { fromEvent, Subscription, Subject } from 'rxjs';
 import { takeUntil, filter, switchMap, take } from 'rxjs/operators';
-
-export interface DragPosition {
-  x: number;
-  y: number;
-  absoluteX: number;
-  absoluteY: number;
-  deltaX: number;
-  deltaY: number;
-  isDragging: boolean;
-}
+import { DragPosition } from './draggable-types';
 
 export interface DraggableDirectiveAPI {
   setPosition(x: number, y: number, animate?: boolean): void;
