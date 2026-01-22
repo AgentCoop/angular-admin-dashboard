@@ -6,14 +6,15 @@ import {
 import { Subject, Subscription } from 'rxjs';
 import { takeUntil, debounceTime } from 'rxjs/operators';
 import { SelectorTrackerService } from '@core/services/dom';
-import { DropzoneConfig, DropEvent, OverlapInfo } from './draggable-types';
+import {DropzoneConfig, DropEvent, OverlapInfo } from '../drag-drop.types';
+import { DragDropService, DropzoneDirectiveAPI } from '@core/drag-drop';
 
 @Directive({
   selector: '[appDropzone]',
   standalone: true,
   exportAs: 'appDropzone'
 })
-export class DropzoneDirective implements OnInit, OnDestroy {
+export class DropzoneDirective implements OnInit, OnDestroy, DropzoneDirectiveAPI {
   // Configuration inputs
   @Input() draggableSelector = '[appdraggable]';
   @Input() activeClass = 'dropzone-active';
@@ -36,6 +37,8 @@ export class DropzoneDirective implements OnInit, OnDestroy {
     return this._observationRoot;
   }
   private _observationRoot: HTMLElement = document.body;
+
+  private dragDropService = inject(DragDropService);
 
   // Event outputs
   @Output() dragEnter = new EventEmitter<DropEvent>();
@@ -65,11 +68,19 @@ export class DropzoneDirective implements OnInit, OnDestroy {
   private overlappingDraggables = new Map<HTMLElement, OverlapInfo>();
   private dragStates = new Map<HTMLElement, boolean>();
 
-  constructor(private elementRef: ElementRef<HTMLElement>) {}
+  constructor(private elementRef: ElementRef<HTMLElement>) { }
+
+  get element(): HTMLElement {
+    return this.elementRef.nativeElement;
+  }
 
   ngOnInit(): void {
-    this.setupSelectorTracker();
-    this.setupDragListeners();
+    //this.setupSelectorTracker();
+    //this.setupDragListeners();
+  }
+
+  ngAfterViewInit() {
+    this.dragDropService.registerOverlapTarget(this);
   }
 
   /**

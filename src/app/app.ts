@@ -7,7 +7,11 @@ import { FormsModule } from '@angular/forms';
 import { StateService } from './core/services/state.service';
 import { AuthService } from './core/services/auth.service';
 import { ThemeService } from './core/services/theme.service';
-import { DraggableDirective, DropEvent, DragPosition, DropzoneDirective } from '@core/directives/draggable';
+
+//import { DraggableDirective, DropEvent, DragPosition, DropzoneDirective } from '@core/directives/draggable';
+
+import { DragPosition, DraggableDirective, DropzoneDirective, DropEvent } from '@core/drag-drop';
+
 
 interface ColoredSquare {
   id: number;
