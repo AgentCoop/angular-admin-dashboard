@@ -163,4 +163,40 @@ export class DragDropService {
   public getConfig(): DragDropConfig {
     return { ...this.config };
   }
+
+  public geTranslatedBounds(element: HTMLElement): DOMRect {
+    const rect = element.getBoundingClientRect();
+    const style = window.getComputedStyle(element);
+
+    // Quick check for translate
+    let translateX = 0;
+    let translateY = 0;
+
+    if (style.transform.includes('translate')) {
+      // Simple regex for translate(x, y)
+      const match = style.transform.match(/translate\(([^)]+)\)/);
+      if (match) {
+        const args = match[1].split(',').map(a => a.trim());
+        if (args.length >= 2) {
+          translateX = parseFloat(args[0]) || 0;
+          translateY = parseFloat(args[1]) || 0;
+        } else if (args.length === 1) {
+          const val = parseFloat(args[0]) || 0;
+          translateX = val;
+          translateY = val;
+        }
+      }
+    }
+
+    // Add scroll
+    const scrollX = window.scrollX || window.pageXOffset || 0;
+    const scrollY = window.scrollY || window.pageYOffset || 0;
+
+    return new DOMRect(
+      rect.left + translateX + scrollX,
+      rect.top + translateY + scrollY,
+      rect.width,
+      rect.height
+    );
+  }
 }

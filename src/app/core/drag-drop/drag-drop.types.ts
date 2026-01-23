@@ -1,6 +1,6 @@
 // src/app/core/drag-drop/drag-drop.types.ts
 import { InjectionToken } from '@angular/core';
-import {DraggableConfig} from '@core/drag-drop/directives/draggable.directive';
+import {OverlapResult} from '@core/dom/overlap';
 
 interface DirectiveAPI {
   get element(): HTMLElement;
@@ -132,21 +132,6 @@ export interface OverlapTargetConfig {
   leaveClass?: string;
   minimumOverlapRatio?: number;
   emitEvents?: boolean;
-}
-
-export interface OverlapResult {
-  target: HTMLElement;
-  isOverlapping: boolean;
-  overlapRatio: number; // 0 to 1 (0% to 100%)
-  overlapArea: number; // in pixels²
-  overlapRect?: DOMRect; // Rectangle of overlapping area
-  sourceRect: DOMRect;
-  targetRect: DOMRect;
-  percentOfSource: number; // What % of source is inside target
-  percentOfTarget: number; // What % of target is covered by source
-  entrySide?: 'top' | 'bottom' | 'left' | 'right' | 'corner';
-  distanceToCenter: number; // Distance from source center to target center
-  centerOffset: { x: number; y: number }; // Offset between centers
 }
 
 export interface OverlapEvent {

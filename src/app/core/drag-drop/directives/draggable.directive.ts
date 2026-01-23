@@ -4,11 +4,13 @@ import {
   Renderer2, OnInit, OnDestroy, HostBinding, NgZone,
   inject
 } from '@angular/core';
+
+import { calculateOverlap, OverlapResult } from '@core/dom/overlap';
 import { fromEvent, Subscription, Subject } from 'rxjs';
 import {takeUntil, filter, switchMap, take, debounceTime} from 'rxjs/operators';
 
 import {
-  OverlapEvent, OverlapHistory, OverlapResult, OverlapTargetConfig, OverlapInfo,
+  OverlapEvent, OverlapHistory, OverlapTargetConfig, OverlapInfo,
   DraggableDirectiveAPI,
   DragPosition,
   DragDropService
@@ -230,7 +232,7 @@ export class DraggableDirective implements OnInit, OnDestroy, DraggableDirective
 
     // Start overlap detection
     if (this.overlapDetectionEnabled) {
-      this.startOverlapDetection();
+      this.initializeOverlapTargets();
     }
 
     // Reset offsets
@@ -247,31 +249,6 @@ export class DraggableDirective implements OnInit, OnDestroy, DraggableDirective
       this.dragStart.emit(event);
     });
   }
-
-  // private checkDropzoneOverlap(): void {
-  //   const draggableRect = this.element.getBoundingClientRect();
-  //
-  //   this.dragDropService.getDropzoneElements().forEach(dropzone => {
-  //     const dropzoneRect = dropzone.getBoundingClientRect();
-  //
-  //     const overlapX =
-  //       Math.max(0, Math.min(draggableRect.right, dropzoneRect.right) -
-  //         Math.max(draggableRect.left, dropzoneRect.left));
-  //
-  //     const overlapY =
-  //       Math.max(0, Math.min(draggableRect.bottom, dropzoneRect.bottom) -
-  //         Math.max(draggableRect.top, dropzoneRect.top));
-  //
-  //     const overlapArea = overlapX * overlapY;
-  //
-  //     const isOverlapping = overlapArea > 0;
-  //
-  //     if (isOverlapping) {
-  //       console.log('over dropzone', dropzone);
-  //     }
-  //   });
-  // }
-
 
   private onDragMove(event: PointerEvent) {
     if (!this.isDragging) return;
@@ -295,7 +272,7 @@ export class DraggableDirective implements OnInit, OnDestroy, DraggableDirective
     this.applyTransform();
 
     if (this.overlapDetectionEnabled) {
-      this.stopOverlapDetection();
+      this.startOverlapDetection();
     }
 
     // Emit event inside Angular zone
@@ -319,6 +296,8 @@ export class DraggableDirective implements OnInit, OnDestroy, DraggableDirective
     (event.target as HTMLElement).releasePointerCapture(event.pointerId);
 
     //this.stopDropzonesIntersectionObserver();
+
+    this.stopOverlapDetection();
 
     // Reset cursor
     this.renderer.setStyle(this.handleElement, 'cursor', 'grab');
@@ -402,7 +381,7 @@ export class DraggableDirective implements OnInit, OnDestroy, DraggableDirective
     if (!this.overlapDetectionEnabled || this.isCheckingOverlap) return;
 
     this.isCheckingOverlap = true;
-    this.initializeOverlapTargets();
+    //this.initializeOverlapTargets();
 
     // Use requestAnimationFrame for smooth, frame-synced checking
     const checkOverlaps = () => {
@@ -443,12 +422,12 @@ export class DraggableDirective implements OnInit, OnDestroy, DraggableDirective
       const targetRect = target.getBoundingClientRect();
 
       // Skip if target has zero area or is not visible
-      if (targetRect.width === 0 || targetRect.height === 0 || target.offsetParent === null) {
+      if (targetRect.width === 0 || targetRect.height === 0) {
         return;
       }
 
       // Calculate overlap
-      const overlapResult = this.calculateOverlap(sourceRect, targetRect, target);
+      const overlapResult = calculateOverlap(sourceRect, targetRect, target);
 
       // Determine if overlapping now
       const isNowOverlapping = overlapResult.isOverlapping &&
@@ -482,126 +461,6 @@ export class DraggableDirective implements OnInit, OnDestroy, DraggableDirective
         targetInfo.isOverlapping = isNowOverlapping;
       }
     });
-  }
-
-  /**
-   * Universal overlap calculation between any two elements
-   */
-  private calculateOverlap(
-    sourceRect: DOMRect,
-    targetRect: DOMRect,
-    targetElement: HTMLElement
-  ): OverlapResult {
-    // Calculate overlapping area
-    const overlapX = Math.max(0,
-      Math.min(sourceRect.right, targetRect.right) - Math.max(sourceRect.left, targetRect.left)
-    );
-
-    const overlapY = Math.max(0,
-      Math.min(sourceRect.bottom, targetRect.bottom) - Math.max(sourceRect.top, targetRect.top)
-    );
-
-    const overlapArea = overlapX * overlapY;
-
-    // Calculate areas
-    const sourceArea = sourceRect.width * sourceRect.height;
-    const targetArea = targetRect.width * targetRect.height;
-
-    // Calculate overlap ratios
-    const overlapRatio = sourceArea > 0 ? (overlapArea / sourceArea) : 0;
-    const percentOfSource = sourceArea > 0 ? (overlapArea / sourceArea) * 100 : 0;
-    const percentOfTarget = targetArea > 0 ? (overlapArea / targetArea) * 100 : 0;
-
-    // Calculate overlapping rectangle coordinates
-    let overlapRect: DOMRect | undefined;
-    if (overlapArea > 0) {
-      const overlapLeft = Math.max(sourceRect.left, targetRect.left);
-      const overlapTop = Math.max(sourceRect.top, targetRect.top);
-      const overlapRight = Math.min(sourceRect.right, targetRect.right);
-      const overlapBottom = Math.min(sourceRect.bottom, targetRect.bottom);
-
-      overlapRect = new DOMRect(
-        overlapLeft,
-        overlapTop,
-        overlapRight - overlapLeft,
-        overlapBottom - overlapTop
-      );
-    }
-
-    // Calculate entry side
-    const entrySide = this.calculateEntrySide(sourceRect, targetRect, overlapRect);
-
-    // Calculate center positions and offset
-    const sourceCenter = {
-      x: sourceRect.left + (sourceRect.width / 2),
-      y: sourceRect.top + (sourceRect.height / 2)
-    };
-
-    const targetCenter = {
-      x: targetRect.left + (targetRect.width / 2),
-      y: targetRect.top + (targetRect.height / 2)
-    };
-
-    const distanceToCenter = Math.sqrt(
-      Math.pow(targetCenter.x - sourceCenter.x, 2) +
-      Math.pow(targetCenter.y - sourceCenter.y, 2)
-    );
-
-    const centerOffset = {
-      x: targetCenter.x - sourceCenter.x,
-      y: targetCenter.y - sourceCenter.y
-    };
-
-    return {
-      target: targetElement,
-      isOverlapping: overlapArea > 0,
-      overlapRatio,
-      overlapArea,
-      overlapRect,
-      sourceRect: new DOMRect(sourceRect.x, sourceRect.y, sourceRect.width, sourceRect.height),
-      targetRect: new DOMRect(targetRect.x, targetRect.y, targetRect.width, targetRect.height),
-      percentOfSource,
-      percentOfTarget,
-      entrySide,
-      distanceToCenter,
-      centerOffset
-    };
-  }
-
-  /**
-   * Calculates which side of target the source entered from
-   */
-  private calculateEntrySide(
-    sourceRect: DOMRect,
-    targetRect: DOMRect,
-    overlapRect?: DOMRect
-  ): 'top' | 'bottom' | 'left' | 'right' | 'corner' | undefined {
-    if (!overlapRect || overlapRect.width === 0 || overlapRect.height === 0) {
-      return undefined;
-    }
-
-    // Check proximity to edges (within 5px)
-    const proximityThreshold = 5;
-
-    const topProximity = Math.abs(sourceRect.bottom - targetRect.top) < proximityThreshold;
-    const bottomProximity = Math.abs(sourceRect.top - targetRect.bottom) < proximityThreshold;
-    const leftProximity = Math.abs(sourceRect.right - targetRect.left) < proximityThreshold;
-    const rightProximity = Math.abs(sourceRect.left - targetRect.right) < proximityThreshold;
-
-    // Check for corner entries
-    if ((topProximity && leftProximity) || (topProximity && rightProximity) ||
-      (bottomProximity && leftProximity) || (bottomProximity && rightProximity)) {
-      return 'corner';
-    }
-
-    // Single side entries
-    if (topProximity) return 'top';
-    if (bottomProximity) return 'bottom';
-    if (leftProximity) return 'left';
-    if (rightProximity) return 'right';
-
-    // Default to undefined if no clear edge
-    return undefined;
   }
 
   /**
