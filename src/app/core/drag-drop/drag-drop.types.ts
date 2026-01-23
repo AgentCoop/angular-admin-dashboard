@@ -66,16 +66,6 @@ export interface DragData {
   sourceElement: HTMLElement;
 }
 
-// Drag event interface
-export interface DragEvent {
-  event: MouseEvent | TouchEvent;
-  dragId: string;
-  data: DragData;
-  source: HTMLElement;
-  dropzoneId?: string;
-  position: { x: number; y: number };
-}
-
 // Dropzone configuration
 export interface DropzoneConfig {
   acceptGroup?: string | string[];
@@ -149,3 +139,41 @@ export interface OverlapHistory {
   overlapCount: number;
   lastOverlapRatio: number;
 }
+
+export enum DragEventType {
+  DRAG_START = 'dragStart',
+  DRAG_MOVE = 'dragMove',
+  DRAG_END = 'dragEnd',
+  DRAG_CANCEL = 'dragCancel'
+}
+
+export interface BaseDragEvent {
+  type: DragEventType;
+  draggable: DraggableDirectiveAPI;
+  timestamp: DOMHighResTimeStamp;
+  pointerEvent: PointerEvent;
+  data?: any;
+}
+
+export interface DragStartEvent extends BaseDragEvent {
+  type: DragEventType.DRAG_START;
+}
+
+export interface DragMoveEvent extends BaseDragEvent {
+  type: DragEventType.DRAG_MOVE;
+}
+
+export interface DragEndEvent extends BaseDragEvent {
+  type: DragEventType.DRAG_END;
+}
+
+export interface DragCancelEvent extends BaseDragEvent {
+  type: DragEventType.DRAG_CANCEL;
+  reason: 'escKey' | 'pointerLost' | 'userCancel' | 'error';
+}
+
+export type DragEvent =
+  | DragStartEvent
+  | DragMoveEvent
+  | DragEndEvent
+  | DragCancelEvent;

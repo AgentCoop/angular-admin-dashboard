@@ -13,7 +13,7 @@ import {
   OverlapEvent, OverlapHistory, OverlapTargetConfig, OverlapInfo,
   DraggableDirectiveAPI,
   DragPosition,
-  DragDropService
+  DragDropService, DragStartEvent, DragEventType
 } from '@core/drag-drop';
 
 export interface DraggableConfig {
@@ -244,9 +244,19 @@ export class DraggableDirective implements OnInit, OnDestroy, DraggableDirective
     // Disable transitions during drag for smooth movement
     this.renderer.setStyle(this.elementRef.nativeElement, 'transition', 'none');
 
+
+    // Create and emit drag start event
+    const dragStartEvent: DragStartEvent = {
+      type: DragEventType.DRAG_START,
+      draggable: this,
+      timestamp: performance.now(),
+      pointerEvent: event,
+    };
+
     // Emit event inside Angular zone
     this.ngZone.run(() => {
       this.dragStart.emit(event);
+      this.dragDropService.dispatchDragStart(dragStartEvent);
     });
   }
 

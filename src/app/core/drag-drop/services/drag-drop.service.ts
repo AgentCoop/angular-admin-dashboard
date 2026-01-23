@@ -5,7 +5,7 @@ import { filter, takeUntil, debounceTime } from 'rxjs/operators';
 
 import {
   DraggableDirectiveAPI, DragData, DragEvent, DragState, DragDropConfig, DEFAULT_DRAG_DROP_CONFIG,
-  DropzoneDirectiveAPI, OverlapTargetAPI
+  OverlapTargetAPI, DragStartEvent
 } from '@core/drag-drop';
 
 export const DRAG_DROP_CONFIG = new InjectionToken<DragDropConfig>('DragDropConfig');
@@ -19,7 +19,7 @@ export class DragDropService {
   private overlapTargets = new Set<OverlapTargetAPI>();
 
   // State streams
-  private dragStart$ = new Subject<DragEvent>();
+  private dragStart$ = new Subject<DragStartEvent>();
   private dragMove$ = new Subject<DragEvent>();
   private dragEnd$ = new Subject<DragEvent>();
   private drop$ = new Subject<DragEvent>();
@@ -122,7 +122,7 @@ export class DragDropService {
   }
 
   // Event dispatching
-  public dispatchDragStart(event: DragEvent): void {
+  public dispatchDragStart(event: DragStartEvent): void {
     this.dragStart$.next(event);
     // this.currentDrag.next({
     //   id: event.dragId,
