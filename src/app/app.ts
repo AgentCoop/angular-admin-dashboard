@@ -8,9 +8,9 @@ import { StateService } from './core/services/state.service';
 import { AuthService } from './core/services/auth.service';
 import { ThemeService } from './core/services/theme.service';
 
-//import { DraggableDirective, DropEvent, DragPosition, DropzoneDirective } from '@core/directives/draggable';
+//import { DraggableDirective, DropEvent, DragPosition, UiDropzoneDirective } from '@core/directives/draggable';
 
-import { DragPosition, DraggableDirective, DropzoneDirective, DropEvent } from '@core/drag-drop';
+import { DragPosition, DraggableDirective, UiDropzoneDirective, DropEvent } from '@core/drag-drop';
 
 
 interface ColoredSquare {
@@ -48,7 +48,7 @@ interface DynamicZone {
     RouterModule,
     FormsModule,
     DraggableDirective,
-    DropzoneDirective
+    UiDropzoneDirective
   ],
   templateUrl: './app.html',
   styleUrls: ['./app.scss'],

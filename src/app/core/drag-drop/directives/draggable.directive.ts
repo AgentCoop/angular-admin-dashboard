@@ -57,7 +57,7 @@ export class DraggableDirective implements OnInit, OnDestroy, DraggableDirective
   @Input() dragUseTransform = true;
   @Input() dragConvertToAbsolute = true;
   @Input() dragAutoPosition = false;
-  @Input() dropzoneSelector = '[appDropzone]';
+  @Input() dropzoneSelector = '[uiDropzone]';
 
   @Input() overlapTargetSelector = null;
   @Input() overlapDetectionEnabled = true;
@@ -779,55 +779,7 @@ export class DraggableDirective implements OnInit, OnDestroy, DraggableDirective
     return Array.from({ length: 11 }, (_, i) => i * 0.1);
   }
 
-  /**
-   * Verifies actual overlap since IntersectionObserver only checks viewport intersection
-   */
-  private checkActualOverlap(draggable: HTMLElement, dropzone: HTMLElement, reportedRatio: number): boolean {
-    if (reportedRatio <= 0) return false;
-
-    const draggableRect = draggable.getBoundingClientRect();
-    const dropzoneRect = dropzone.getBoundingClientRect();
-
-    // Calculate actual overlap
-    const overlapX = Math.max(0,
-      Math.min(draggableRect.right, dropzoneRect.right) -
-      Math.max(draggableRect.left, dropzoneRect.left)
-    );
-
-    const overlapY = Math.max(0,
-      Math.min(draggableRect.bottom, dropzoneRect.bottom) -
-      Math.max(draggableRect.top, dropzoneRect.top)
-    );
-
-    const overlapArea = overlapX * overlapY;
-    const draggableArea = draggableRect.width * draggableRect.height;
-
-    return overlapArea > 0 && (overlapArea / draggableArea) > 0.01; // At least 1% overlap
-  }
-
   // Public API implementation
-
-  /**
-   * Get the raw delta (cursor movement without constraints)
-   * This shows how much the cursor has moved from the start
-   */
-  getDelta(): { deltaX: number; deltaY: number } {
-    return {
-      deltaX: this.currentDelta.x,
-      deltaY: this.currentDelta.y
-    };
-  }
-
-  /**
-   * Get the constrained delta (actual element movement after applying boundaries)
-   * This shows how much the element has actually moved
-   */
-  getCurrentDelta(): { deltaX: number; deltaY: number } {
-    return {
-      deltaX: this.constrainedDelta.x,
-      deltaY: this.constrainedDelta.y
-    };
-  }
 
   /**
    * Get the current drag state including start position

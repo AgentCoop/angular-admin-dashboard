@@ -11,7 +11,7 @@ export interface DraggableDirectiveAPI extends DirectiveAPI {
 }
 
 export interface DropzoneDirectiveAPI extends  DirectiveAPI {
-
+  handleDragEnter(draggable: DraggableDirectiveAPI, overlapInfo: OverlapResult): void
 }
 
 export interface OverlapTargetAPI extends DirectiveAPI {

@@ -5,7 +5,7 @@
 export { DragDropService } from './services/drag-drop.service';
 
 // Directives
-export { DropzoneDirective } from './directives/dropzone.directive';
+export { UiDropzoneDirective } from './directives/ui-dropzone.directive';
 export { DraggableDirective } from './directives/draggable.directive';
 
 // Interfaces and constants

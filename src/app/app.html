@@ -87,14 +87,14 @@
             <!-- Dropzone 1: Priority Area -->
             <div
               class="dropzone priority-dropzone"
-              appDropzone
-              [draggableSelector]="'.colored-square'"
-              [activeClass]="'priority-active'"
-              [overlapThreshold]="0.5"
-              (dragEnter)="onDragEnter($event, 'priority')"
-              (dragOver)="onDragOver($event, 'priority')"
-              (dragLeave)="onDragLeave($event, 'priority')"
-              (drop)="onDrop($event, 'priority')">
+              uiDropzone>
+<!--              [draggableSelector]="'.colored-square'"-->
+<!--              [activeClass]="'priority-active'"-->
+<!--              [overlapThreshold]="0.5"-->
+<!--              (dragEnter)="onDragEnter($event, 'priority')"-->
+<!--              (dragOver)="onDragOver($event, 'priority')"-->
+<!--              (dragLeave)="onDragLeave($event, 'priority')"-->
+<!--              (drop)="onDrop($event, 'priority')"-->
 
               <div class="dropzone-content">
                 <div class="dropzone-icon">⭐</div>
