@@ -135,20 +135,6 @@
               (dragEnd)="onSquareDragEnd($event, square.id)">
 
               <div class="square-content">
-                <!-- Coordinate Display -->
-                @if (showCoordinatesPanel()) {
-                  <div class="coordinates-display">
-                    <div class="coordinate">
-                      <span class="coord-label">X:</span>
-                      <span class="coord-value">{{ square.position.x | number:'1.2-2' }}</span>
-                    </div>
-                    <div class="coordinate">
-                      <span class="coord-label">Y:</span>
-                      <span class="coord-value">{{ square.position.y | number:'1.2-2' }}</span>
-                    </div>
-                  </div>
-                }
-
                 <!-- Square Info -->
                 <div class="square-info">
                   <div class="square-name">{{ square.name }}</div>
@@ -164,57 +150,6 @@
               </div>
             </div>
           }
-
-          <!-- Coordinates Overlay -->
-          @if (showCoordinatesPanel()) {
-            <div class="coordinates-overlay">
-              <div class="overlay-header">
-                <h3>📐 Live Coordinates</h3>
-                <small>Top-left corner positions</small>
-              </div>
-              <div class="coordinates-list">
-                @for (square of squares(); track square.id) {
-                  <div class="coordinate-item" [style.border-left-color]="square.color">
-                    <div class="coord-square" [style.background-color]="square.color"></div>
-                    <div class="coord-details">
-                      <div class="coord-name">{{ square.name }}</div>
-                      <div class="coord-position">
-                        <code>({{ square.position.x | number:'1.2-2' }}, {{ square.position.y | number:'1.2-2' }})</code>
-                      </div>
-                    </div>
-                  </div>
-                }
-              </div>
-              <!-- FIXED: Use signal instead of direct element access -->
-              <div class="overlay-footer">
-                <small>Total squares: {{ squares().length }}</small>
-                <small>Boundary: {{ draggableAreaDimensions().width }}px × {{ draggableAreaDimensions().height }}px</small>
-              </div>
-            </div>
-          }
-        </div>
-
-        <!-- Instructions -->
-        <div class="instructions">
-          <h3>📋 How to Use</h3>
-          <div class="instruction-grid">
-            <div class="instruction">
-              <div class="instruction-icon">👆</div>
-              <div class="instruction-text">Click and drag any square to move it</div>
-            </div>
-            <div class="instruction">
-              <div class="instruction-icon">📍</div>
-              <div class="instruction-text">Coordinates update in real-time</div>
-            </div>
-            <div class="instruction">
-              <div class="instruction-icon">💾</div>
-              <div class="instruction-text">Positions are saved automatically</div>
-            </div>
-            <div class="instruction">
-              <div class="instruction-icon">⚙️</div>
-              <div class="instruction-text">Use buttons to align or randomize</div>
-            </div>
-          </div>
         </div>
       </div>
 
