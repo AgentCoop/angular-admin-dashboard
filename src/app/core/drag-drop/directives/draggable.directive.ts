@@ -13,7 +13,7 @@ import {
   OverlapEvent, OverlapHistory, OverlapTargetConfig, OverlapInfo,
   DraggableDirectiveAPI,
   DragPosition,
-  DragDropService, DragStartEvent, DragEventType
+  DragDropService, DragStartEvent, DragEventType, DragMoveEvent, DragEndEvent
 } from '@core/drag-drop';
 
 export interface DraggableConfig {
@@ -82,13 +82,11 @@ export class DraggableDirective implements OnInit, OnDestroy, DraggableDirective
   @HostBinding('style.user-select') userSelect = 'none';
   @HostBinding('style.touch-action') touchAction = 'none';
 
+
+  private dragMoveSubscription?: Subscription;
+
   private dragSubscriptions = new Subscription();
   private destroy$ = new Subject<void>();
-
-  // Intersection Observer for dropzone detection
-  private intersectionDropzonesObserver?: IntersectionObserver;
-  private observedDropzones = new Set<HTMLElement>();
-  private overlappingDropzones = new Set<HTMLElement>();
 
   // Dropzone tracking via selector tracker
   private dropzoneElements = new Map<HTMLElement, {
@@ -120,6 +118,7 @@ export class DraggableDirective implements OnInit, OnDestroy, DraggableDirective
   private overlapHistory = new Map<HTMLElement, OverlapHistory>();
   private overlapCheckInterval?: number;
   private isCheckingOverlap = false;
+  private isCtrlPressed = false;
 
   // Services
   private dragDropService = inject(DragDropService);
@@ -134,9 +133,117 @@ export class DraggableDirective implements OnInit, OnDestroy, DraggableDirective
       return this.elementRef.nativeElement;
   }
 
+  /**
+   * Handle drag move events from the service
+   */
+  private handleDragMoveEvent(dragEvent: DragMoveEvent): void {
+    // Update position based on delta from the event
+
+    const deltaX = dragEvent.deltaPointerPosition.x || 0;
+    const deltaY = dragEvent.deltaPointerPosition.y || 0;
+
+    // Update transform offset
+    this.transformOffset.x = deltaX;
+    this.transformOffset.y = deltaY;
+
+    // Apply transform immediately
+    this.applyTransform();
+
+    // Perform overlap detection if enabled
+    if (this.overlapDetectionEnabled) {
+      this.startOverlapDetection();
+    }
+  }
+
+
+  private setupGlobalListeners(): void {
+    // Listen for Ctrl key state
+    fromEvent<KeyboardEvent>(document, 'keydown')
+      .pipe(
+        filter(event => event.key === 'Control' || event.key === 'Meta'),
+        takeUntil(this.destroy$)
+      )
+      .subscribe(() => {
+        this.isCtrlPressed = true;
+      });
+
+    fromEvent<KeyboardEvent>(document, 'keyup')
+      .pipe(
+        filter(event => event.key === 'Control' || event.key === 'Meta'),
+        takeUntil(this.destroy$)
+      )
+      .subscribe(() => {
+        this.isCtrlPressed = false;
+      });
+
+    // Setup pointer events on handle element
+    this.setupPointerEvents();
+  }
+
+  /**
+   * Setup pointer events for both mouse and touch
+   */
+  private setupPointerEvents(): void {
+    // Prevent browser's default touch actions (like scrolling) on handle
+    this.renderer.setStyle(this.handleElement, 'touch-action', 'none');
+
+    // Pointer down (for both mouse and touch)
+    fromEvent<PointerEvent>(this.handleElement!, 'pointerdown')
+      .pipe(
+        filter(() => !this.dragDisabled), // Only if not disabled
+        filter(() => !this.isDragging), // Only if not already dragging
+        // For mouse: check it's left button (button === 0)
+        // For touch: button is undefined, so always allow
+        filter(event => {
+          // Allow touch events (pointerType === 'touch')
+          if (event.pointerType === 'touch') {
+            return true;
+          }
+          // For mouse, only allow left button
+          return event.button === 0;
+        }),
+        takeUntil(this.destroy$)
+      )
+      .subscribe((e) => {
+        this.onDragStart(e);
+      });
+
+    // Pointer up anywhere on document
+    fromEvent<PointerEvent>(document, 'pointerup')
+      .pipe(
+        // Only process if we're dragging
+        filter(() => this.isDragging),
+        takeUntil(this.destroy$)
+      )
+      .subscribe((e) => {
+        this.onDragEnd(e);
+      });
+
+    // Pointer cancel (for touch interruptions)
+    fromEvent<PointerEvent>(this.handleElement!, 'pointercancel')
+      .pipe(
+        filter(() => this.isDragging),
+        takeUntil(this.destroy$)
+      )
+      .subscribe((e) => {
+        //this.onDragCancel(e);
+      });
+
+    // Pointer leave (optional: handle pointer leaving the document)
+    fromEvent<PointerEvent>(document, 'pointerleave')
+      .pipe(
+        filter(() => this.isDragging),
+        takeUntil(this.destroy$)
+      )
+      .subscribe((e) => {
+        //this.onPointerLeave(e);
+      });
+  }
+
   ngOnInit() {
     this.initializeElements();
-    this.setupDrag();
+    //this.setupDrag();
+    this.setupGlobalListeners();
 
     // Setup overlap targets if enabled
     if (this.overlapDetectionEnabled) {
@@ -182,43 +289,14 @@ export class DraggableDirective implements OnInit, OnDestroy, DraggableDirective
     this.elementPosition = { x: left, y: top };
   }
 
-  private setupDrag() {
-    this.ngZone.runOutsideAngular(() => {
-      const mousedown$ = fromEvent<PointerEvent>(this.handleElement!, 'pointerdown').pipe(
-        filter(event => !this.dragDisabled && event.button === 0), // Left click only
-        filter(() => !this.isDragging)
-      );
-
-      const drag$ = mousedown$.pipe(
-        switchMap(startEvent => {
-          this.onDragStart(startEvent);
-
-          const mousemove$ = fromEvent<PointerEvent>(document, 'pointermove');
-          const mouseup$ = fromEvent<PointerEvent>(document, 'pointerup');
-
-          return mousemove$.pipe(
-            takeUntil(mouseup$.pipe(
-              take(1),
-              switchMap(endEvent => {
-                this.onDragEnd(endEvent);
-                return [];
-              })
-            ))
-          );
-        })
-      );
-
-      this.dragSubscriptions.add(
-        drag$.subscribe(moveEvent => {
-          this.onDragMove(moveEvent);
-        })
-      );
-    });
-  }
-
   private onDragStart(event: PointerEvent) {
     event.preventDefault();
     event.stopPropagation();
+
+    this.dragDropService.addToSelection(this);
+    if (this.isCtrlPressed) {
+      return;
+    }
 
     this.isDragging = true;
 
@@ -248,9 +326,10 @@ export class DraggableDirective implements OnInit, OnDestroy, DraggableDirective
     // Create and emit drag start event
     const dragStartEvent: DragStartEvent = {
       type: DragEventType.DRAG_START,
-      draggable: this,
+      //draggable: this,
       timestamp: performance.now(),
-      pointerEvent: event,
+      //pointerEvent: event,
+      initialPointerPosition: { x: event.clientX, y: event.clientY }
     };
 
     // Emit event inside Angular zone
@@ -258,54 +337,61 @@ export class DraggableDirective implements OnInit, OnDestroy, DraggableDirective
       this.dragStart.emit(event);
       this.dragDropService.dispatchDragStart(dragStartEvent);
     });
+
+    // Subscribe to drag move events from service
+    this.subscribeToDragMove();
   }
 
-  private onDragMove(event: PointerEvent) {
-    if (!this.isDragging) return;
+  /**
+   * Subscribe to drag move events from the DragDropService
+   */
+  private subscribeToDragMove(): void {
+    // Clean up any existing subscription first
+    this.unsubscribeFromDragMove();
 
-    event.preventDefault();
+    this.dragMoveSubscription = this.dragDropService.onDragMove().pipe(
+      takeUntil(this.destroy$)
+    ).subscribe((dragEvent: DragMoveEvent) => {
+      // Check if this draggable is in the selection
+      const isInSelection = dragEvent.selection?.includes(this);
 
-    // Calculate the difference from initial cursor position
-    const deltaX = event.clientX - this.initialCursorPosition.x;
-    const deltaY = event.clientY - this.initialCursorPosition.y;
-
-    // Store current raw delta
-    this.currentDelta = { x: deltaX, y: deltaY };
-
-    // Update transform offset (use constrained delta for visual transform)
-    this.transformOffset = {
-      x: deltaX,
-      y: deltaY,
-    };
-
-    // Apply transform immediately
-    this.applyTransform();
-
-    if (this.overlapDetectionEnabled) {
-      this.startOverlapDetection();
-    }
-
-    // Emit event inside Angular zone
-    this.ngZone.run(() => {
-      // this.dragMove.emit({
-      //   x: this.transformOffset.x,
-      //   y: this.transformOffset.y,
-      //   deltaX: deltaX,
-      //   deltaY: deltaY,
-      //   isDragging: true
-      // });
+      if (isInSelection) {
+        this.handleDragMoveEvent(dragEvent);
+      }
     });
   }
 
-  private onDragEnd(event: PointerEvent) {
-    if (!this.isDragging) return;
+  /**
+   * Unsubscribe from drag move events
+   */
+  private unsubscribeFromDragMove(): void {
+    if (this.dragMoveSubscription) {
+      this.dragMoveSubscription.unsubscribe();
+      this.dragMoveSubscription = undefined;
+    }
+  }
 
+  private onDragEnd(event: PointerEvent) {
+    // Unsubscribe from drag move events
+    this.unsubscribeFromDragMove();
+
+    console.log('dragging ended');
     this.isDragging = false;
 
-    // Release pointer capture
-    (event.target as HTMLElement).releasePointerCapture(event.pointerId);
+    const dragEndEvent: DragEndEvent = {
+      type: DragEventType.DRAG_END,
+      timestamp: performance.now(),
+    };
 
-    //this.stopDropzonesIntersectionObserver();
+    this.dragDropService.dispatchDragEnd(dragEndEvent);
+
+    // Clear selection
+    this.dragDropService.clearSelection();
+
+    // Release pointer capture
+    if (event.target instanceof HTMLElement) {
+      event.target.releasePointerCapture(event.pointerId);
+    }
 
     this.stopOverlapDetection();
 
@@ -325,9 +411,6 @@ export class DraggableDirective implements OnInit, OnDestroy, DraggableDirective
 
     // Emit final position
     this.ngZone.run(() => {
-      // this.dragEnd.emit({
-      // });
-
       this.positionChanged.emit({
         x: this.currentPosition.x,
         y: this.currentPosition.y
@@ -339,7 +422,6 @@ export class DraggableDirective implements OnInit, OnDestroy, DraggableDirective
     this.currentDelta = { x: 0, y: 0 };
     this.constrainedDelta = { x: 0, y: 0 };
   }
-
 
   /**
    * Initializes overlap targets based on selector
@@ -773,22 +855,6 @@ export class DraggableDirective implements OnInit, OnDestroy, DraggableDirective
     this.renderer.removeStyle(this.elementRef.nativeElement, 'transition');
   }
 
-  /**
-   * Returns intersection thresholds based on precision mode
-   *
-   * @param {boolean} highPrecisionMode - When true, returns more granular thresholds
-   * @returns {number[]} Array of threshold values between 0 and 1
-   */
-  private getIntersectionThresholds(highPrecisionMode: boolean = true): number[] {
-    if (highPrecisionMode) {
-      // High precision: 21 steps (0%, 5%, 10%, ..., 100%)
-      return Array.from({ length: 21 }, (_, i) => i * 0.05);
-    }
-
-    // Default precision: 11 steps (0%, 10%, 20%, ..., 100%)
-    return Array.from({ length: 11 }, (_, i) => i * 0.1);
-  }
-
   // Public API implementation
 
   /**
@@ -846,6 +912,10 @@ export class DraggableDirective implements OnInit, OnDestroy, DraggableDirective
   }
 
   ngOnDestroy() {
+
+    // Clean up subscriptions
+    this.unsubscribeFromDragMove();
+
     this.destroy$.next();
     this.destroy$.complete();
     this.dragSubscriptions.unsubscribe();

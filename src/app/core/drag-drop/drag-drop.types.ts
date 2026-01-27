@@ -149,18 +149,21 @@ export enum DragEventType {
 
 export interface BaseDragEvent {
   type: DragEventType;
-  draggable: DraggableDirectiveAPI;
+  //draggable: DraggableDirectiveAPI;
   timestamp: DOMHighResTimeStamp;
-  pointerEvent: PointerEvent;
+  //pointerEvent: PointerEvent;
   data?: any;
 }
 
 export interface DragStartEvent extends BaseDragEvent {
   type: DragEventType.DRAG_START;
+  initialPointerPosition: { x: number; y: number; };
 }
 
 export interface DragMoveEvent extends BaseDragEvent {
   type: DragEventType.DRAG_MOVE;
+  selection: Array<DraggableDirectiveAPI>;
+  deltaPointerPosition: { x: number; y: number; };
 }
 
 export interface DragEndEvent extends BaseDragEvent {
