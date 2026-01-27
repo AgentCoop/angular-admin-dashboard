@@ -83,6 +83,21 @@ export class DraggableDirective implements OnInit, OnDestroy, DraggableDirective
   @HostBinding('style.touch-action') touchAction = 'none';
 
 
+  private dragStartThreshold = 5; // pixels threshold before drag starts
+  private isMouseDown = false;
+  private pointerDownPosition = { x: 0, y: 0 };
+  private selectionStartPosition = { x: 0, y: 0 };
+  private multiDragThresholdReached = false;
+
+  private selectionState = {
+    isInSelection: false,
+    wasSelectedOnMouseDown: false
+  };
+
+
+  // Track if this element is selected (for Ctrl+click)
+  @HostBinding('class.selected') isSelected = false;
+
   private dragMoveSubscription?: Subscription;
 
   private dragSubscriptions = new Subscription();
@@ -99,8 +114,6 @@ export class DraggableDirective implements OnInit, OnDestroy, DraggableDirective
   private elementPosition = { x: 0, y: 0 }; // Element position when drag starts
   private currentPosition = { x: 0, y: 0 }; // Current element position
   private transformOffset = { x: 0, y: 0 }; // Current transform offset
-  private currentDelta = { x: 0, y: 0 }; // Current delta from start
-  private constrainedDelta = { x: 0, y: 0 }; // Delta after constraints applied
 
   // Element references
   private handleElement?: HTMLElement;
@@ -205,18 +218,27 @@ export class DraggableDirective implements OnInit, OnDestroy, DraggableDirective
         takeUntil(this.destroy$)
       )
       .subscribe((e) => {
-        this.onDragStart(e);
+        this.onPointerDown(e);
+      });
+
+    // Pointer move - check for threshold to start multi-drag
+    fromEvent<PointerEvent>(document, 'pointermove')
+      .pipe(
+        filter(() => this.isMouseDown && this.isCtrlPressed && !this.isDragging),
+        takeUntil(this.destroy$)
+      )
+      .subscribe((event) => {
+        this.checkDragThreshold(event);
       });
 
     // Pointer up anywhere on document
     fromEvent<PointerEvent>(document, 'pointerup')
       .pipe(
-        // Only process if we're dragging
-        filter(() => this.isDragging),
+        filter(() => this.isMouseDown || this.isDragging),
         takeUntil(this.destroy$)
       )
       .subscribe((e) => {
-        this.onDragEnd(e);
+        this.onPointerUp(e);
       });
 
     // Pointer cancel (for touch interruptions)
@@ -242,8 +264,8 @@ export class DraggableDirective implements OnInit, OnDestroy, DraggableDirective
 
   ngOnInit() {
     this.initializeElements();
-    //this.setupDrag();
     this.setupGlobalListeners();
+    this.subscribeToDragMove();
 
     // Setup overlap targets if enabled
     if (this.overlapDetectionEnabled) {
@@ -259,6 +281,89 @@ export class DraggableDirective implements OnInit, OnDestroy, DraggableDirective
 
   ngAfterViewInit() {
     this.dragDropService.registerDraggable(this);
+  }
+
+  /**
+   * Handle pointer up
+   */
+  private onPointerUp(event: PointerEvent): void {
+    // If we were dragging, end the drag
+    if (this.isDragging) {
+      this.onDragEnd(event);
+    } else if (this.isMouseDown) {
+      // Mouse was down but drag didn't start (click without moving beyond threshold)
+      //this.handleClick(event);
+    }
+
+    // Reset mouse state
+    this.isMouseDown = false;
+    this.multiDragThresholdReached = false;
+
+    // Release pointer capture if we have it
+    if (event.target instanceof HTMLElement &&
+      (event.target as HTMLElement).hasPointerCapture(event.pointerId)) {
+      event.target.releasePointerCapture(event.pointerId);
+    }
+  }
+
+  /**
+   * Handle pointer down with multi-drag logic
+   */
+  private onPointerDown(event: PointerEvent): void {
+    event.preventDefault();
+    event.stopPropagation();
+
+    this.isMouseDown = true;
+    this.pointerDownPosition = { x: event.clientX, y: event.clientY };
+    this.selectionStartPosition = { x: event.clientX, y: event.clientY };
+    this.multiDragThresholdReached = false;
+
+    // Store selection state at mouse down
+    this.selectionState.wasSelectedOnMouseDown = this.selectionState.isInSelection;
+    this.dragDropService.addToSelection(this);
+
+    // Handle selection logic
+    if (this.isCtrlPressed) {
+      // Don't start drag immediately when Ctrl is pressed
+      // Wait for mouse movement beyond threshold
+      return;
+    }
+
+    // Capture pointer immediately for non-Ctrl click
+    (event.target as HTMLElement).setPointerCapture(event.pointerId);
+
+    this.startDrag(event);
+  }
+
+  /**
+   * Check if mouse movement exceeds threshold for multi-drag
+   */
+  private checkDragThreshold(event: PointerEvent): void {
+    if (!this.isMouseDown || this.isDragging) return;
+
+    const deltaX = Math.abs(event.clientX - this.pointerDownPosition.x);
+    const deltaY = Math.abs(event.clientY - this.pointerDownPosition.y);
+    const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+
+    // Check if movement exceeds threshold
+    if (distance >= this.dragStartThreshold && !this.multiDragThresholdReached) {
+      this.multiDragThresholdReached = true;
+
+      // Check if we have multiple elements in selection
+      const selection = this.dragDropService.getCurrentSelection();
+      const hasMultipleSelected = selection && selection.length > 1;
+
+      // Start drag if:
+      // 1. Ctrl is pressed AND
+      // 2. We have multiple elements selected AND
+      // 3. Threshold is reached
+      if (this.isCtrlPressed && hasMultipleSelected) {
+        this.startDrag(event);
+      } else if (!this.isCtrlPressed) {
+        // Normal drag without Ctrl
+        //this.startDrag(event);
+      }
+    }
   }
 
   private initializeElements() {
@@ -289,19 +394,8 @@ export class DraggableDirective implements OnInit, OnDestroy, DraggableDirective
     this.elementPosition = { x: left, y: top };
   }
 
-  private onDragStart(event: PointerEvent) {
-    event.preventDefault();
-    event.stopPropagation();
-
-    this.dragDropService.addToSelection(this);
-    if (this.isCtrlPressed) {
-      return;
-    }
-
+  private startDrag(event: PointerEvent) {
     this.isDragging = true;
-
-    // Capture pointer for consistent dragging
-    (event.target as HTMLElement).setPointerCapture(event.pointerId);
 
     // Store initial cursor position in document coordinates
     this.initialCursorPosition = { x: event.clientX, y: event.clientY };
@@ -337,27 +431,27 @@ export class DraggableDirective implements OnInit, OnDestroy, DraggableDirective
       this.dragStart.emit(event);
       this.dragDropService.dispatchDragStart(dragStartEvent);
     });
-
-    // Subscribe to drag move events from service
-    this.subscribeToDragMove();
   }
 
   /**
-   * Subscribe to drag move events from the DragDropService
+   * Setup drag move subscription in ngOnInit.
+   * This ensures all draggables are listening for drag move events
    */
   private subscribeToDragMove(): void {
     // Clean up any existing subscription first
     this.unsubscribeFromDragMove();
 
     this.dragMoveSubscription = this.dragDropService.onDragMove().pipe(
+      // Filter drag events early in the pipe for better performance
+      filter((dragEvent: DragMoveEvent) => {
+        // Only process if this draggable is in the selection.
+        const inSelection = dragEvent.selection?.some(item => item === this) || false;
+
+        return inSelection;
+      }),
       takeUntil(this.destroy$)
     ).subscribe((dragEvent: DragMoveEvent) => {
-      // Check if this draggable is in the selection
-      const isInSelection = dragEvent.selection?.includes(this);
-
-      if (isInSelection) {
-        this.handleDragMoveEvent(dragEvent);
-      }
+      this.handleDragMoveEvent(dragEvent);
     });
   }
 
@@ -372,10 +466,6 @@ export class DraggableDirective implements OnInit, OnDestroy, DraggableDirective
   }
 
   private onDragEnd(event: PointerEvent) {
-    // Unsubscribe from drag move events
-    this.unsubscribeFromDragMove();
-
-    console.log('dragging ended');
     this.isDragging = false;
 
     const dragEndEvent: DragEndEvent = {
@@ -419,8 +509,6 @@ export class DraggableDirective implements OnInit, OnDestroy, DraggableDirective
 
     // Reset offsets
     this.transformOffset = { x: 0, y: 0 };
-    this.currentDelta = { x: 0, y: 0 };
-    this.constrainedDelta = { x: 0, y: 0 };
   }
 
   /**
@@ -834,7 +922,6 @@ export class DraggableDirective implements OnInit, OnDestroy, DraggableDirective
   private applyTransform() {
     // Apply transform during drag
     const transform = `translate(${this.transformOffset.x}px, ${this.transformOffset.y}px)`;
-    // const transform = `translate(-50%, -50%); translate(100px, 200px)`;
     this.renderer.setStyle(this.elementRef.nativeElement, 'transform', transform);
   }
 

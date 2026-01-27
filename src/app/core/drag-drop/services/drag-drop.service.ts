@@ -23,6 +23,9 @@ export class DragDropService {
   private dragStartPosition: { x: number; y: number } | null = null;
   private activeDragSubscription: Subscription | null = null;
 
+  // Selection tracking
+  private selectionChange$ = new BehaviorSubject<DraggableDirectiveAPI[]>([]);
+
   // State streams
   private dragStart$ = new Subject<DragStartEvent>();
   private dragMove$ = new Subject<DragMoveEvent>();
@@ -158,24 +161,44 @@ export class DragDropService {
     }
   }
 
+  private emitSelectionChange(): void {
+    this.selectionChange$.next(this.getCurrentSelection());
+  }
+
   // Public API
 
   /**
    * Add a draggable to the current selection
    */
   public addToSelection(draggable: DraggableDirectiveAPI): void {
-    this.draggablesSelection.add(draggable);
+    if (!this.draggablesSelection.has(draggable)) {
+      this.draggablesSelection.add(draggable);
+      this.emitSelectionChange();
+    }
   }
 
   /**
    * Remove a draggable from the current selection by reference
    */
   public removeFromSelection(draggable: DraggableDirectiveAPI): boolean {
-    return this.draggablesSelection.delete(draggable);
+    const removed = this.draggablesSelection.delete(draggable);
+    if (removed) {
+      this.emitSelectionChange();
+    }
+    return removed;
+  }
+
+  public onSelectionChange(): Observable<DraggableDirectiveAPI[]> {
+    return this.selectionChange$.asObservable();
+  }
+
+  public getCurrentSelection(): DraggableDirectiveAPI[] {
+    return Array.from(this.draggablesSelection);
   }
 
   public clearSelection(): void {
     this.draggablesSelection.clear();
+    this.emitSelectionChange();
   }
 
   public onDragStart(): Observable<DragStartEvent> {
