@@ -92,7 +92,11 @@
               "buildTarget": "angular-admin-dashboard:build:production"
             },
             "development": {
-              "buildTarget": "angular-admin-dashboard:build:development"
+              "buildTarget": "angular-admin-dashboard:build:development",
+              "headers": {
+                "Cross-Origin-Opener-Policy": "same-origin",
+                "Cross-Origin-Embedder-Policy": "require-corp"
+              }
             }
           },
           "defaultConfiguration": "development"

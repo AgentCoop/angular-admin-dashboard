@@ -263,7 +263,7 @@ export class UiDropzoneDirective implements OnInit, AfterViewInit, OnDestroy, Dr
     this.initializeDropzone();
     this.dragDropService.registerOverlapTarget(this);
     this.dragDropService.onDragStart().subscribe((e) => {
-      console.log('dragging started %o', e);
+      //console.log('dragging started %o', e);
     })
   }
 

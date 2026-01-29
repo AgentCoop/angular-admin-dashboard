@@ -267,13 +267,13 @@ export class SharedWorkerService implements OnDestroy {
     });
 
     // Handle broadcast messages
-    this.messages$.pipe(
-      filter(msg => msg.type === WorkerMessageType.BROADCAST),
-      takeUntil(this.destroy$)
-    ).subscribe((msg: any) => {
-      // Emit to application
-      this.messageSubject.next(msg);
-    });
+    // this.messages$.pipe(
+    //   filter(msg => msg.type === WorkerMessageType.BROADCAST),
+    //   takeUntil(this.destroy$)
+    // ).subscribe((msg: any) => {
+    //   // Emit to application
+    //   this.messageSubject.next(msg);
+    // });
   }
 
   private startHeartbeat(): void {
@@ -316,6 +316,9 @@ export class SharedWorkerService implements OnDestroy {
       case WorkerMessageType.WORKER_CONNECTED:
         console.log('Connected to SharedWorker:', (message as any).workerId);
         this.updateConnectionStatus(true, (message as any).workerId);
+        break;
+
+      case WorkerMessageType.PING:
         break;
 
       case WorkerMessageType.PONG:

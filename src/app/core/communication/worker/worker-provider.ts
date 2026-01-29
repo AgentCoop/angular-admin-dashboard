@@ -36,7 +36,7 @@ export class WorkerProvider {
       console.log(`Creating SharedWorker from: ${workerUrl}`);
 
       this.worker = new SharedWorker(workerUrl, {
-        name: this.workerId,
+        name: 'angular-desktop-ui',
         type: 'module'
       });
 

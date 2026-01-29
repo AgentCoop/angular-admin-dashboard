@@ -249,10 +249,6 @@ export class App implements OnInit, AfterViewInit, OnDestroy {
     // ✅ ADDED: Load chat positions
     this.loadChatPositions();
 
-    // Initialize with some dynamic zones
-    this.addDynamicDropzone('Team Tasks', 'priority', 5);
-    this.addDynamicDropzone('Backlog', 'review', 10);
-
     // ✅ ADDED: Add welcome messages to chat windows
     this.addSystemMessage(1, 'Welcome to Global Chat! Messages here are broadcast to all tabs.');
     this.addSystemMessage(2, 'Team Discussion channel created.');
@@ -315,7 +311,7 @@ export class App implements OnInit, AfterViewInit, OnDestroy {
         }
         break;
 
-      case 'CHAT_MESSAGE':
+      case WorkerMessageType.BROADCAST:
         this.handleChatMessage(message);
         break;
 
@@ -331,9 +327,13 @@ export class App implements OnInit, AfterViewInit, OnDestroy {
     }
   }
 
-  // ✅ ADDED: Handle chat messages
   private handleChatMessage(message: any): void {
     const { windowId, text, sender, tabId, timestamp } = message.payload || {};
+
+    // Skip if this is our own message (we already added it locally)
+    // if (tabId === this.currentTabId()) {
+    //   return; // We've already shown it locally
+    // }
 
     if (windowId && text) {
       const chatMessage: ChatMessage = {
@@ -341,7 +341,7 @@ export class App implements OnInit, AfterViewInit, OnDestroy {
         text,
         sender: sender || `Tab ${tabId?.substring(0, 8)}`,
         timestamp: new Date(timestamp || Date.now()),
-        isOwn: tabId === this.currentTabId(),
+        isOwn: false, // This is from another tab
         tabId: tabId || 'unknown'
       };
 
@@ -365,7 +365,7 @@ export class App implements OnInit, AfterViewInit, OnDestroy {
       );
 
       // Add to logs
-      this.addChatLog(`Message in ${this.getWindowTitle(windowId)}: ${text}`, windowId);
+      this.addChatLog(`Message from ${sender} in ${this.getWindowTitle(windowId)}: ${text}`, windowId);
     }
   }
 
@@ -434,35 +434,61 @@ export class App implements OnInit, AfterViewInit, OnDestroy {
   // ✅ CHAT WINDOW METHODS
   // =====================
 
-  // Send message from a chat window
+// Send message from a chat window
   sendMessage(windowId: number): void {
     const window = this.chatWindows().find(w => w.id === windowId);
     if (!window || !window.newMessage.trim()) return;
 
-    // Create message
-    const message = {
-      windowId,
-      text: window.newMessage,
-      sender: 'me', //this.currentUser$.value?.name || 'Anonymous',
-      tabId: this.currentTabId(),
-      timestamp: Date.now()
-    };
+    const messageText = window.newMessage;
+    const tabId = this.currentTabId();
+    const timestamp = Date.now();
 
-    // Broadcast to all tabs
+    // 1. FIRST: Add message to your own UI immediately
+    this.addOwnMessageToChat(windowId, messageText, tabId, timestamp);
+
+    // 2. THEN: Broadcast to other tabs
     this.workerService.broadcast({
-      type: 'CHAT_MESSAGE',
-      ...message
+      windowId,
+      text: messageText,
+      sender: 'me', // or this.currentUser$.value?.name || 'Anonymous',
+      tabId: tabId,
+      timestamp: timestamp
     });
 
-    // Clear input
+    // 3. Clear input
     this.chatWindows.update(windows =>
       windows.map(w =>
         w.id === windowId ? { ...w, newMessage: '' } : w
       )
     );
 
-    // Add to logs
-    this.addChatLog(`You sent: ${window.newMessage}`, windowId);
+    // 4. Add to logs
+    this.addChatLog(`You sent: ${messageText}`, windowId);
+  }
+
+// Helper method to add your own message locally
+  private addOwnMessageToChat(windowId: number, text: string, tabId: string, timestamp: number): void {
+    const ownMessage: ChatMessage = {
+      id: `own_${timestamp}_${Math.random().toString(36).substring(2, 9)}`,
+      text,
+      sender: 'You', // Show "You" for your own messages
+      timestamp: new Date(timestamp),
+      isOwn: true,
+      tabId: tabId
+    };
+
+    this.chatWindows.update(windows =>
+      windows.map(window => {
+        if (window.id === windowId) {
+          return {
+            ...window,
+            messages: [...window.messages, ownMessage].slice(-50), // Keep last 50
+            isConnected: true
+          };
+        }
+        return window;
+      })
+    );
   }
 
   // Toggle chat window minimized state
@@ -565,7 +591,7 @@ export class App implements OnInit, AfterViewInit, OnDestroy {
   // Add system message to chat
   private addSystemMessage(windowId: number, text: string): void {
     const systemMessage: ChatMessage = {
-      id: `sys_${Date.now()}`,
+      id: `sys_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
       text,
       sender: 'System',
       timestamp: new Date(),
@@ -605,81 +631,6 @@ export class App implements OnInit, AfterViewInit, OnDestroy {
     return window?.title || `Window ${windowId}`;
   }
 
-  // =====================
-  // SQUARE DRAGGING METHODS
-  // =====================
-
-  onSquareDragStart(event: PointerEvent, squareId: number): void {
-    console.log(`Started dragging square ${squareId}`);
-  }
-
-  onSquareDragMove(position: DragPosition, squareId: number): void {
-    // Optional: Update position in real-time
-  }
-
-  onSquareDragEnd(position: DragPosition, squareId: number): void {
-    console.log(`Square ${squareId} dropped at (${position.absoluteX}, ${position.absoluteY})`);
-    this.saveSquarePositions();
-  }
-
-  resetSquarePositions(): void {
-    this.squares.set([
-      { id: 1, color: '#FF6B6B', name: 'Red Square', position: { x: 50, y: 50 } },
-      { id: 2, color: '#4ECDC4', name: 'Teal Square', position: { x: 200, y: 150 } },
-      { id: 3, color: '#FFD166', name: 'Yellow Square', position: { x: 350, y: 80 } }
-    ]);
-    this.saveSquarePositions();
-  }
-
-  randomizeSquarePositions(): void {
-    const areaWidth = this.draggableAreaDimensions().width || 800;
-    const areaHeight = this.draggableAreaDimensions().height || 500;
-
-    this.squares.update(squares =>
-      squares.map(square => ({
-        ...square,
-        position: {
-          x: Math.floor(Math.random() * (areaWidth - 100)), // -100 to keep within bounds
-          y: Math.floor(Math.random() * (areaHeight - 100))
-        }
-      }))
-    );
-    this.saveSquarePositions();
-  }
-
-  alignSquares(alignment: 'horizontal' | 'vertical' | 'grid'): void {
-    this.squares.update(squares => {
-      const sorted = [...squares].sort((a, b) => a.id - b.id);
-
-      switch(alignment) {
-        case 'horizontal':
-          return sorted.map((square, index) => ({
-            ...square,
-            position: { x: 50 + (index * 200), y: 150 }
-          }));
-
-        case 'vertical':
-          return sorted.map((square, index) => ({
-            ...square,
-            position: { x: 300, y: 50 + (index * 150) }
-          }));
-
-        case 'grid':
-          return sorted.map((square, index) => ({
-            ...square,
-            position: {
-              x: 100 + ((index % 2) * 250),
-              y: 100 + (Math.floor(index / 2) * 200)
-            }
-          }));
-
-        default:
-          return squares;
-      }
-    });
-    this.saveSquarePositions();
-  }
-
   saveSquarePositions(): void {
     const positions = this.squares().map(s => ({
       id: s.id,
@@ -705,176 +656,6 @@ export class App implements OnInit, AfterViewInit, OnDestroy {
         console.warn('Failed to load square positions:', e);
       }
     }
-  }
-
-  // =====================
-  // DROPZONE METHODS
-  // =====================
-
-  // Dropzone Event Handlers
-  onDragEnter(event: DropEvent, zone: string): void {
-    this.addLog({
-      timestamp: new Date(),
-      message: `Drag entered ${zone} zone`,
-      type: 'enter',
-      zone
-    });
-
-    console.log('drag enter');
-
-    // Optional: Visual feedback
-    this.highlightZone(zone, true);
-  }
-
-  onDragOver(event: DropEvent, zone: string): void {
-    // Update visual feedback while dragging
-    console.log(`Dragging over ${zone}: ${event.overlapPercentage.toFixed(2)}% overlap`);
-  }
-
-  onDragLeave(event: DropEvent, zone: string): void {
-    this.addLog({
-      timestamp: new Date(),
-      message: `Drag left ${zone} zone`,
-      type: 'leave',
-      zone
-    });
-
-    this.highlightZone(zone, false);
-  }
-
-  onDrop(event: DropEvent, zone: string): void {
-    const square = this.getSquareFromElement(event.draggable);
-    if (!square) return;
-
-    const dropzoneItem: DropzoneItem = {
-      ...square,
-      droppedAt: new Date(),
-      zone
-    };
-
-    // Add to appropriate zone
-    (this.droppedItems as any)[zone].push(dropzoneItem);
-    (this.lastDropTime as any)[zone] = new Date();
-
-    // Log the drop
-    this.addLog({
-      timestamp: new Date(),
-      message: `Dropped "${square.name}" into ${zone}`,
-      type: 'drop',
-      zone
-    });
-
-    // Special handling for trash zone
-    if (zone === 'trash') {
-      this.removeSquare(square.id);
-    }
-
-    // Visual feedback
-    this.showDropAnimation(event.draggable, zone);
-    this.highlightZone(zone, false);
-  }
-
-  // Dynamic Zone Methods
-  addDynamicDropzone(name?: string, type?: any, capacity?: number): void {
-    const zoneName = name || this.newZoneName || `Zone ${this.dynamicZones().length + 1}`;
-    const zoneType = type || this.newZoneType;
-    const zoneCapacity = capacity || 5;
-
-    const newZone: DynamicZone = {
-      id: `zone-${Date.now()}`,
-      name: zoneName,
-      type: zoneType,
-      capacity: zoneCapacity,
-      items: []
-    };
-
-    this.dynamicZones.update(zones => [...zones, newZone]);
-    this.newZoneName = '';
-
-    this.addLog({
-      timestamp: new Date(),
-      message: `Created new dropzone: ${zoneName}`,
-      type: 'enter',
-      zone: 'system'
-    });
-  }
-
-  removeDynamicDropzone(zoneId: string): void {
-    const zone = this.dynamicZones().find(z => z.id === zoneId);
-    if (!zone) return;
-
-    // Return items to original positions
-    zone.items.forEach(item => {
-      this.resetSquarePosition(item.id);
-    });
-
-    this.dynamicZones.update(zones => zones.filter(z => z.id !== zoneId));
-
-    this.addLog({
-      timestamp: new Date(),
-      message: `Removed dropzone: ${zone.name}`,
-      type: 'leave',
-      zone: 'system'
-    });
-  }
-
-  onDynamicDrop(event: DropEvent, zoneId: string): void {
-    const square = this.getSquareFromElement(event.draggable);
-    if (!square) return;
-
-    const zone = this.dynamicZones().find(z => z.id === zoneId);
-    if (!zone) return;
-
-    // Check capacity
-    if (zone.items.length >= zone.capacity) {
-      this.addLog({
-        timestamp: new Date(),
-        message: `Dropzone "${zone.name}" is full!`,
-        type: 'error',
-        zone: zoneId
-      });
-      return;
-    }
-
-    zone.items.push(square);
-
-    this.addLog({
-      timestamp: new Date(),
-      message: `Added "${square.name}" to "${zone.name}"`,
-      type: 'drop',
-      zone: zoneId
-    });
-  }
-
-  // Nested Zone Methods
-  onParentDrop(event: DropEvent): void {
-    const square = this.getSquareFromElement(event.draggable);
-    if (!square) return;
-
-    this.addLog({
-      timestamp: new Date(),
-      message: `Dropped into parent container`,
-      type: 'drop',
-      zone: 'parent'
-    });
-  }
-
-  onChildDrop(event: DropEvent, child: 'A' | 'B' | 'C'): void {
-    const square = this.getSquareFromElement(event.draggable);
-    if (!square) return;
-
-    (this.childZones as any)[child].push(square);
-
-    this.addLog({
-      timestamp: new Date(),
-      message: `Added to child zone ${child}`,
-      type: 'drop',
-      zone: `child-${child}`
-    });
-  }
-
-  getParentZoneElement(): HTMLElement {
-    return this.parentZoneRef?.nativeElement;
   }
 
   // =====================
@@ -907,42 +688,9 @@ export class App implements OnInit, AfterViewInit, OnDestroy {
     console.log(`${zone} ${highlight ? 'highlighted' : 'unhighlighted'}`);
   }
 
-  private showDropAnimation(element: HTMLElement, zone: string): void {
-    // Add animation class
-    element.classList.add('dropped-animation');
-
-    setTimeout(() => {
-      element.classList.remove('dropped-animation');
-    }, 500);
-  }
-
-  // Square Management
-  private removeSquare(squareId: number): void {
-    this.squares.update(squares => squares.filter(s => s.id !== squareId));
-  }
-
-  private resetSquarePosition(squareId: number): void {
-    this.squares.update(squares =>
-      squares.map(square =>
-        square.id === squareId
-          ? { ...square, position: { x: 50, y: 50 } }
-          : square
-      )
-    );
-  }
-
   // =====================
   // PUBLIC UI METHODS
   // =====================
-
-  getSquareStyles(square: ColoredSquare): any {
-    return {
-      'background-color': square.color,
-      'left.px': square.position.x,
-      'top.px': square.position.y,
-      'position': 'absolute'
-    };
-  }
 
   // ✅ ADDED: Get chat window styles
   getChatWindowStyles(window: ChatWindow): any {
@@ -953,55 +701,6 @@ export class App implements OnInit, AfterViewInit, OnDestroy {
       'border-color': window.color,
       'position': 'absolute'
     };
-  }
-
-  resetDropzones(): void {
-    this.droppedItems = {
-      priority: [],
-      review: [],
-      archive: [],
-      trash: []
-    };
-
-    this.dropzoneLogs.set([]);
-
-    this.addLog({
-      timestamp: new Date(),
-      message: 'All dropzones cleared',
-      type: 'leave',
-      zone: 'system'
-    });
-  }
-
-  toggleDropzoneVisibility(): void {
-    this.showDropzones.update(show => !show);
-  }
-
-  emptyTrash(): void {
-    this.droppedItems.trash = [];
-
-    this.addLog({
-      timestamp: new Date(),
-      message: 'Trash emptied',
-      type: 'leave',
-      zone: 'trash'
-    });
-  }
-
-  getZoneColor(zone: string): string {
-    const colors: { [key: string]: string } = {
-      priority: '#ff6b6b',
-      review: '#4ecdc4',
-      archive: '#45b7d1',
-      trash: '#96a6a6',
-      parent: '#feca57',
-      'child-A': '#ff9ff3',
-      'child-B': '#54a0ff',
-      'child-C': '#5f27cd',
-      system: '#8395a7'
-    };
-
-    return colors[zone] || '#576574';
   }
 
   // ✅ ADDED: Clear all chat windows
@@ -1047,22 +746,6 @@ export class App implements OnInit, AfterViewInit, OnDestroy {
       route = route.firstChild;
     }
     return route;
-  }
-
-  toggleSidebar(): void {
-    this.themeService.toggleSidebar();
-  }
-
-  toggleCoordinatesPanel(): void {
-    this.showCoordinatesPanel.update(visible => !visible);
-  }
-
-  logout(): void {
-    this.authService.logout();
-  }
-
-  clearError(): void {
-    this.state.updateAuthState({ error: null });
   }
 
   ngOnDestroy(): void {

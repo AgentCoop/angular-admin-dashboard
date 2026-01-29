@@ -8,6 +8,9 @@ interface ExtendedMessagePort extends MessagePort {
   tabId?: string;
 }
 
+console.log('🧵 SHARED WORKER: Script loaded successfully!');
+console.log('🧵 Worker location:', self.location.href);
+
 const ports: Set<ExtendedMessagePort> = new Set();
 let workerId = Math.random().toString(36).substring(2, 11);
 let sharedData = new Map<string, any>();
@@ -21,6 +24,8 @@ self.onconnect = (event: MessageEvent) => {
   console.log(`[SharedWorker] New connection. Total: ${ports.size}`);
 
   port.onmessage = (e: MessageEvent<WorkerMessage>) => {
+    console.log('[SharedWorker] New message: %o', e);
+
     if (e.data) {
       handleMessage(e.data, port);
     }
@@ -69,11 +74,17 @@ function handleMessage(data: WorkerMessage, sourcePort: ExtendedMessagePort): vo
   }
 }
 
-function broadcastMessage(message: WorkerMessage, sourcePort: ExtendedMessagePort): void {
+function broadcastMessage(
+  message: WorkerMessage,
+  sourcePort: ExtendedMessagePort,
+  options: { excludeSender: boolean } = { excludeSender: true }
+): void {
   ports.forEach(port => {
-    if (port !== sourcePort) {
-      port.postMessage(message);
+    console.log('Connected %d', ports.size);
+    if (options.excludeSender && port === sourcePort) {
+     return; // Skip sender
     }
+    port.postMessage(message);
   });
 }
 
@@ -114,6 +125,7 @@ function broadcastSyncData(key: string, value: any, sourcePort: ExtendedMessageP
 
 // Clean up disconnected ports
 setInterval(() => {
+  console.log(`[SharedWorker] Ping.`)
   ports.forEach(port => {
     try {
       port.postMessage({
