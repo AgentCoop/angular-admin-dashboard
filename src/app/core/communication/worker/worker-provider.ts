@@ -1,38 +1,83 @@
 // worker-provider.ts
-import { Injectable, NgZone } from '@angular/core';
+import { Injectable, Inject, PLATFORM_ID } from '@angular/core';
+import { isPlatformBrowser } from '@angular/common';
+import { environment } from '@env/environment';
 
 @Injectable({ providedIn: 'root' })
 export class WorkerProvider {
   private worker: SharedWorker | null = null;
-  private readonly workerUrl = 'shared-worker.js';
+  private readonly workerId: string;
+  private readonly isSupported: boolean;
 
-  constructor(private ngZone: NgZone) {}
+  constructor(@Inject(PLATFORM_ID) private platformId: any) {
+    this.workerId = `worker_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
+    this.isSupported = this.checkWorkerSupport();
+  }
+
+  private checkWorkerSupport(): boolean {
+    if (!isPlatformBrowser(this.platformId)) {
+      return false;
+    }
+
+    return typeof SharedWorker !== 'undefined';
+  }
 
   createWorker(): SharedWorker {
-    if (typeof SharedWorker === 'undefined') {
-      throw new Error('SharedWorker not supported in this browser');
+    if (!this.isSupported) {
+      throw new Error('SharedWorker is not supported in this environment');
     }
 
-    if (!this.worker) {
-      this.worker = new SharedWorker(this.workerUrl);
-      this.setupErrorHandling();
+    if (this.worker) {
+      return this.worker;
     }
 
+    try {
+      const workerUrl = this.getWorkerUrl();
+      console.log(`Creating SharedWorker from: ${workerUrl}`);
+
+      this.worker = new SharedWorker(workerUrl, {
+        name: this.workerId,
+        type: 'module'
+      });
+
+      return this.worker;
+    } catch (error) {
+      console.error('Failed to create SharedWorker:', error);
+      throw error;
+    }
+  }
+
+  private getWorkerUrl(): string {
+    if (environment.production) {
+      // Production: Use hashed bundle file
+      const baseUrl = window.location.origin;
+      return `${baseUrl}/assets/workers/shared-worker.js?v=${environment.version || '1.0.0'}`;
+    } else {
+      // Development: Use relative path
+      return '/assets/workers/shared-worker.js';
+    }
+  }
+
+  getWorker(): SharedWorker | null {
     return this.worker;
   }
 
-  private setupErrorHandling() {
+  destroyWorker(): void {
     if (this.worker) {
-      this.worker.addEventListener('error', (error) => {
-        console.error('SharedWorker error:', error);
-      });
+      try {
+        this.worker.port.close();
+      } catch (error) {
+        console.warn('Error closing worker port:', error);
+      }
+      this.worker = null;
     }
   }
 
-  destroyWorker() {
-    if (this.worker) {
-      this.worker.port.close();
-      this.worker = null;
-    }
+  isWorkerSupported(): boolean {
+    return this.isSupported;
+  }
+
+  getWorkerId(): string {
+    return this.workerId;
   }
 }

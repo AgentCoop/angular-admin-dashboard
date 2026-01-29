@@ -22,7 +22,7 @@
       "@features/*": ["src/app/features/*"],
       "@pages/*": ["src/app/pages/*"],
       "@tests/*": ["src/tests/*"],
-      "@environments/*": ["src/environments/*"],
+      "@env/*": ["src/environments/*"],
       "@assets/*": ["src/assets/*"]
     }
   },

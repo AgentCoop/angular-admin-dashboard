@@ -1,157 +1,83 @@
 <!-- Main App Container -->
 <div class="app-container" [class.dashboard-layout]="(layoutType$ | async) === 'dashboard'">
 
-  <!-- Header -->
-  @if (showHeader$ | async) {
-    <header class="app-header">
-      <div class="header-content">
-        <div class="header-left">
-          <button class="sidebar-toggle" (click)="toggleSidebar()">
-            <span class="icon">☰</span>
-          </button>
-          <h1 class="page-title">{{ pageTitle$ | async }}</h1>
-        </div>
-
-        <div class="header-right">
-          <div class="user-menu">
-            <button class="user-btn" (click)="logout()">
-              <span class="avatar">👤</span>
-              <span class="user-name">{{ (currentUser$ | async)?.name || 'User' }}</span>
-            </button>
-          </div>
-        </div>
-      </div>
-    </header>
-  }
-
   <!-- Main Content Area -->
   <main class="main-content">
     <!-- Page Content -->
     <section class="page-content">
-      <!-- Loading Indicator -->
-      @if (isLoading$ | async) {
-        <div class="loading-overlay">
-          <div class="loading-spinner"></div>
-          <p>Loading...</p>
-        </div>
-      }
 
-      <!-- Error Messages -->
-      @if (errorMessage$ | async) {
-        <div class="error-banner">
-          <span>{{ errorMessage$ | async }}</span>
-          <button (click)="clearError()" class="close-btn">×</button>
-        </div>
-      }
+      <!-- Draggable Area -->
+      <div class="draggable-area" #draggableArea>
+        <!-- Dropzone Container -->
+        <div class="dropzone-container">
+          <!-- Dropzone 1: Priority Area -->
+          <div
+            class="dropzone priority-dropzone"
+            uiDropzone>
+            <!--              [draggableSelector]="'.colored-square'"-->
+            <!--              [activeClass]="'priority-active'"-->
+            <!--              [overlapThreshold]="0.5"-->
+            <!--              (dragEnter)="onDragEnter($event, 'priority')"-->
+            <!--              (dragOver)="onDragOver($event, 'priority')"-->
+            <!--              (dragLeave)="onDragLeave($event, 'priority')"-->
+            <!--              (drop)="onDrop($event, 'priority')"-->
 
-      <!-- Draggable Squares Demo -->
-      <div class="demo-container">
-        <div class="demo-header">
-          <h2>🎯 Draggable Squares Demo</h2>
-          <p class="demo-subtitle">Drag the colored squares around. Their top-left coordinates are displayed inside.</p>
+            <div class="dropzone-content">
+              <div class="dropzone-icon">⭐</div>
+              <h3>Priority Zone</h3>
+              <p class="dropzone-description">High priority items go here</p>
 
-          <div class="demo-controls">
-            <button class="control-btn" (click)="resetSquarePositions()">
-              <span class="icon">↺</span>
-              Reset Positions
-            </button>
-            <button class="control-btn" (click)="randomizeSquarePositions()">
-              <span class="icon">🎲</span>
-              Randomize
-            </button>
-            <button class="control-btn" (click)="toggleCoordinatesPanel()">
-              <span class="icon">{{ showCoordinatesPanel() ? '👁️' : '👁️‍🗨️' }}</span>
-              {{ showCoordinatesPanel() ? 'Hide' : 'Show' }} Coordinates
-            </button>
+              <!-- Dropped items display -->
+              <div class="dropped-items">
+                @for (item of droppedItems.priority; track item.id) {
+                  <div class="dropped-item" [style.background-color]="item.color">
+                    {{ item.name }}
+                  </div>
+                }
+              </div>
 
-            <div class="alignment-controls">
-              <span class="control-label">Align:</span>
-              <button class="align-btn" (click)="alignSquares('horizontal')">⟷ Horizontal</button>
-              <button class="align-btn" (click)="alignSquares('vertical')">⟶ Vertical</button>
-              <button class="align-btn" (click)="alignSquares('grid')">⏹️ Grid</button>
-            </div>
-          </div>
-        </div>
-
-        <!-- Draggable Area -->
-        <div class="draggable-area" #draggableArea>
-          <!-- Grid Background (Optional) -->
-          <div class="grid-background"></div>
-
-          <!-- Axes Labels -->
-          <div class="axis-label x-axis">X Axis</div>
-          <div class="axis-label y-axis">Y Axis</div>
-
-          <!-- Dropzone Container -->
-          <div class="dropzone-container">
-            <!-- Dropzone 1: Priority Area -->
-            <div
-              class="dropzone priority-dropzone"
-              uiDropzone>
-<!--              [draggableSelector]="'.colored-square'"-->
-<!--              [activeClass]="'priority-active'"-->
-<!--              [overlapThreshold]="0.5"-->
-<!--              (dragEnter)="onDragEnter($event, 'priority')"-->
-<!--              (dragOver)="onDragOver($event, 'priority')"-->
-<!--              (dragLeave)="onDragLeave($event, 'priority')"-->
-<!--              (drop)="onDrop($event, 'priority')"-->
-
-              <div class="dropzone-content">
-                <div class="dropzone-icon">⭐</div>
-                <h3>Priority Zone</h3>
-                <p class="dropzone-description">High priority items go here</p>
-
-                <!-- Dropped items display -->
-                <div class="dropped-items">
-                  @for (item of droppedItems.priority; track item.id) {
-                    <div class="dropped-item" [style.background-color]="item.color">
-                      {{ item.name }}
-                    </div>
-                  }
-                </div>
-
-                <div class="dropzone-stats">
-                  <span class="stat">Items: {{ droppedItems.priority.length }}</span>
-                  <span class="stat">Last drop: {{ lastDropTime.priority | date:'HH:mm:ss' }}</span>
-                </div>
+              <div class="dropzone-stats">
+                <span class="stat">Items: {{ droppedItems.priority.length }}</span>
+                <span class="stat">Last drop: {{ lastDropTime.priority | date:'HH:mm:ss' }}</span>
               </div>
             </div>
           </div>
+        </div>
 
+        <!-- Draggable Squares -->
+        @for (square of squares(); track square.id) {
+          <div
+            class="colored-square"
+            [ngStyle]="getSquareStyles(square)"
+            [style.zIndex]="square.id"
+            appDraggable
+            [dragHandle]="'.square-content'"
+            [dragBoundary]="draggableArea"
+            [dragSnapToGrid]="false"
+            [dragUseTransform]="true"
+            (dragStart)="onSquareDragStart($event, square.id)"
+            (dragMove)="onSquareDragMove($event, square.id)"
+            (dragEnd)="onSquareDragEnd($event, square.id)">
 
-          <!-- Draggable Squares -->
-          @for (square of squares(); track square.id) {
-            <div
-              class="colored-square"
-              [ngStyle]="getSquareStyles(square)"
-              [style.zIndex]="square.id"
-              appDraggable
-              [dragHandle]="'.square-content'"
-              [dragBoundary]="draggableArea"
-              [dragSnapToGrid]="false"
-              [dragUseTransform]="true"
-              (dragStart)="onSquareDragStart($event, square.id)"
-              (dragMove)="onSquareDragMove($event, square.id)"
-              (dragEnd)="onSquareDragEnd($event, square.id)">
+            <div class="square-content">
+              <!-- Square Info -->
+              <div class="square-info">
+                <div class="square-name">{{ square.name }}</div>
+                <div class="square-color" [style.background-color]="square.color"></div>
+                <div class="square-id">#{{ square.id }}</div>
+              </div>
 
-              <div class="square-content">
-                <!-- Square Info -->
-                <div class="square-info">
-                  <div class="square-name">{{ square.name }}</div>
-                  <div class="square-color" [style.background-color]="square.color"></div>
-                  <div class="square-id">#{{ square.id }}</div>
-                </div>
-
-                <!-- Drag Hint -->
-                <div class="drag-hint">
-                  <span class="drag-icon">☰</span>
-                  <span class="drag-text">Drag me</span>
-                </div>
+              <!-- Drag Hint -->
+              <div class="drag-hint">
+                <span class="drag-icon">☰</span>
+                <span class="drag-text">Drag me</span>
               </div>
             </div>
-          }
-        </div>
+          </div>
+        }
       </div>
+
+
 
       <!-- Router Outlet -->
       <router-outlet></router-outlet>

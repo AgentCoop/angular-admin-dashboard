@@ -1,6 +1,6 @@
 // shared-worker.ts
 /// <reference lib="webworker" />
-import { WorkerMessage, WorkerMessageType } from './types';
+import {WorkerMessage, WorkerMessageDirection, WorkerMessageType} from './types';
 
 declare const self: SharedWorkerGlobalScope;
 
@@ -58,9 +58,9 @@ function handleMessage(data: WorkerMessage, sourcePort: ExtendedMessagePort): vo
       sendPong(sourcePort);
       break;
 
-    case WorkerMessageType.TAB_INFO:
-      updateTabInfo(data.tabId, sourcePort);
-      break;
+    // case WorkerMessageType.TAB_INFO:
+    //   updateTabInfo(data.tabId, sourcePort);
+    //   break;
 
     case WorkerMessageType.SYNC_DATA:
       syncSharedData(data.key, data.value);
@@ -100,7 +100,9 @@ function broadcastSyncData(key: string, value: any, sourcePort: ExtendedMessageP
     type: WorkerMessageType.SYNC_DATA,
     key,
     value,
-    timestamp: Date.now()
+    timestamp: Date.now(),
+    direction: WorkerMessageDirection.FROM_WORKER,
+    tabId: '',
   };
 
   ports.forEach(port => {
