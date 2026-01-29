@@ -8,73 +8,145 @@
 
       <!-- Draggable Area -->
       <div class="draggable-area" #draggableArea>
-        <!-- Dropzone Container -->
-        <div class="dropzone-container">
-          <!-- Dropzone 1: Priority Area -->
-          <div
-            class="dropzone priority-dropzone"
-            uiDropzone>
-            <!--              [draggableSelector]="'.colored-square'"-->
-            <!--              [activeClass]="'priority-active'"-->
-            <!--              [overlapThreshold]="0.5"-->
-            <!--              (dragEnter)="onDragEnter($event, 'priority')"-->
-            <!--              (dragOver)="onDragOver($event, 'priority')"-->
-            <!--              (dragLeave)="onDragLeave($event, 'priority')"-->
-            <!--              (drop)="onDrop($event, 'priority')"-->
+        <!-- Chat Windows Container -->
+        <div class="chat-windows-container">
+          @for (window of chatWindows(); track window.id) {
+            <div
+              class="chat-window"
+              [ngStyle]="getChatWindowStyles(window)"
+              [class.minimized]="window.isMinimized"
+              [class.unread]="window.unreadCount > 0"
+              appDraggable
+              [dragHandle]="'.chat-header'"
+              [dragUseTransform]="true">
 
-            <div class="dropzone-content">
-              <div class="dropzone-icon">⭐</div>
-              <h3>Priority Zone</h3>
-              <p class="dropzone-description">High priority items go here</p>
+              <!-- Chat Window Header -->
+              <div class="chat-header">
+                <div class="chat-title">
+                  {{ window.title }}
+                  <span class="tab-count" *ngIf="window.id === 1">
+            ({{ connectedTabs() }} tab{{ connectedTabs() !== 1 ? 's' : '' }})
+          </span>
+                  <span class="unread-badge" *ngIf="window.unreadCount > 0">
+            {{ window.unreadCount }}
+          </span>
+                </div>
 
-              <!-- Dropped items display -->
-              <div class="dropped-items">
-                @for (item of droppedItems.priority; track item.id) {
-                  <div class="dropped-item" [style.background-color]="item.color">
-                    {{ item.name }}
-                  </div>
-                }
+                <div class="chat-actions">
+                  <button class="chat-btn minimize-btn" (click)="toggleChatWindow(window.id)">
+                    {{ window.isMinimized ? '➕' : '➖' }}
+                  </button>
+                  <button class="chat-btn close-btn" (click)="closeChatWindow(window.id)">
+                    ✕
+                  </button>
+                </div>
               </div>
 
-              <div class="dropzone-stats">
-                <span class="stat">Items: {{ droppedItems.priority.length }}</span>
-                <span class="stat">Last drop: {{ lastDropTime.priority | date:'HH:mm:ss' }}</span>
-              </div>
+              <!-- Chat Messages (hidden when minimized) -->
+              @if (!window.isMinimized) {
+                <div class="chat-messages">
+                  @for (message of window.messages; track message.id) {
+                    <div
+                      class="chat-message"
+                      [class.own-message]="message.isOwn"
+                      [class.system-message]="message.sender === 'System'">
+
+                      <div class="message-sender">
+                        {{ message.sender }}
+                        <span class="message-time">
+                  {{ message.timestamp | date:'HH:mm' }}
+                </span>
+                      </div>
+
+                      <div class="message-text">
+                        {{ message.text }}
+                      </div>
+
+                      <div class="message-tab" *ngIf="message.tabId && message.tabId !== 'system'">
+                        from Tab {{ message.tabId.substring(0, 8) }}
+                      </div>
+                    </div>
+                  }
+
+                  @if (window.messages.length === 0) {
+                    <div class="no-messages">
+                      No messages yet. Start typing!
+                    </div>
+                  }
+                </div>
+
+                <!-- Chat Input -->
+                <div class="chat-input-container">
+                  <input
+                    type="text"
+                    class="chat-input"
+                    [(ngModel)]="window.newMessage"
+                    placeholder="Type your message..."
+                    (keyup.enter)="sendMessage(window.id)"
+                    [disabled]="!workerConnected()">
+
+                  <button
+                    class="send-btn"
+                    (click)="sendMessage(window.id)"
+                    [disabled]="!window.newMessage.trim() || !workerConnected()"
+                    [title]="!workerConnected() ? 'Not connected to worker' : 'Send message'">
+                    Send
+                  </button>
+                </div>
+              }
             </div>
+          }
+        </div>
+
+        <!-- Worker Status Bar -->
+        <div class="worker-status-bar" [class.connected]="workerConnected()">
+          <div class="status-indicator"></div>
+          <span class="status-text">
+    {{ workerConnected() ? '✅ Connected' : '❌ Disconnected' }}
+  </span>
+
+          <span class="tab-info" *ngIf="workerConnected()">
+    • Your Tab ID: {{ currentTabId().substring(0, 8) }}
+            • Connected tabs: {{ connectedTabs() }}
+  </span>
+
+          <div class="status-actions">
+            <button
+              class="status-btn"
+              (click)="testCrossTabMessage()"
+              [disabled]="!workerConnected()">
+              Test Cross-Tab
+            </button>
+
+            <button
+              class="status-btn"
+              (click)="clearAllChats()">
+              Clear All
+            </button>
+
+            <button
+              class="status-btn"
+              (click)="saveChatPositions()">
+              Save Positions
+            </button>
           </div>
         </div>
 
-        <!-- Draggable Squares -->
-        @for (square of squares(); track square.id) {
-          <div
-            class="colored-square"
-            [ngStyle]="getSquareStyles(square)"
-            [style.zIndex]="square.id"
-            appDraggable
-            [dragHandle]="'.square-content'"
-            [dragBoundary]="draggableArea"
-            [dragSnapToGrid]="false"
-            [dragUseTransform]="true"
-            (dragStart)="onSquareDragStart($event, square.id)"
-            (dragMove)="onSquareDragMove($event, square.id)"
-            (dragEnd)="onSquareDragEnd($event, square.id)">
-
-            <div class="square-content">
-              <!-- Square Info -->
-              <div class="square-info">
-                <div class="square-name">{{ square.name }}</div>
-                <div class="square-color" [style.background-color]="square.color"></div>
-                <div class="square-id">#{{ square.id }}</div>
-              </div>
-
-              <!-- Drag Hint -->
-              <div class="drag-hint">
-                <span class="drag-icon">☰</span>
-                <span class="drag-text">Drag me</span>
-              </div>
+        <!-- Chat Logs Panel (optional) -->
+        @if (showCoordinatesPanel()) {
+          <div class="chat-logs-panel">
+            <h3>Chat Activity Logs</h3>
+            <div class="logs-container">
+              @for (log of chatLogs(); track log.timestamp) {
+                <div class="log-entry">
+                  <span class="log-time">{{ log.timestamp | date:'HH:mm:ss' }}</span>
+                  <span class="log-message">{{ log.message }}</span>
+                </div>
+              }
             </div>
           </div>
         }
+
       </div>
 
 
