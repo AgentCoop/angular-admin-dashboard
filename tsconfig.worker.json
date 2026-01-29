@@ -1,0 +1,49 @@
+// tsconfig.worker.json
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "outDir": "./dist/worker-types",
+    "target": "ES2020",
+    "module": "ES2020",
+    "lib": ["ES2020", "WebWorker", "DOM"],
+    "moduleResolution": "node",
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "declaration": false,
+
+
+   // "sourceMap": true,
+    //"inlineSources": true,
+
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": false, // Turn off for worker (no Angular DI)
+    "downlevelIteration": true,
+    "importHelpers": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "strict": true,
+    "noImplicitOverride": true,
+    "noPropertyAccessFromIndexSignature": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "useDefineForClassFields": false
+  },
+  "include": [
+    "src/app/core/communication/worker/**/*.ts",
+    "src/app/shared/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "src/test.ts",
+    "src/**/*.spec.ts",
+    "src/main.ts",
+    "src/polyfills.ts",
+    "src/**/*.service.ts", // Exclude Angular services
+    "src/**/*.component.ts",
+    "src/**/*.module.ts",
+    "src/**/*.directive.ts",
+    "src/**/*.pipe.ts"
+  ]
+}

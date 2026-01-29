@@ -37,7 +37,12 @@
                 "glob": "**/*",
                 "input": "public"
               },
-              "src/assets"
+              "src/assets",
+              {
+                "glob": "**/*",
+                "input": "dist/workers",
+                "output": "assets/workers"
+              }
             ],
             "styles": [
               "src/tailwind.css",
@@ -58,8 +63,8 @@
                 },
                 {
                   "type": "anyComponentStyle",
-                  "maximumWarning": "4kB",
-                  "maximumError": "8kB"
+                  "maximumWarning": "32kB",
+                  "maximumError": "64kB"
                 }
               ],
               "outputHashing": "all",
@@ -69,7 +74,7 @@
                   "minify": true,
                   "inlineCritical": true
                 },
-                "fonts": true
+                "fonts": false
               }
             },
             "development": {
@@ -91,6 +96,54 @@
             }
           },
           "defaultConfiguration": "development"
+        },
+        "build-worker": {
+          "builder": "@angular-devkit/build-angular:webpack-browser",
+          "options": {
+            "customWebpackConfig": {
+              "path": "./webpack.config.worker.js",
+              "mergeRules": {
+                "optimization": "append"
+              }
+            },
+            "outputPath": "dist/workers",
+            "main": "src/app/core/communication/worker/shared-worker.ts",
+            "tsConfig": "tsconfig.worker.json",
+            "polyfills": [],
+            "assets": [],
+            "styles": [],
+            "scripts": [],
+            "optimization": {
+              "scripts": true,
+              "styles": false
+            },
+            "outputHashing": "none",
+            "sourceMap": true,
+            "namedChunks": false,
+            "extractLicenses": false,
+            "vendorChunk": false,
+            "buildOptimizer": false
+          },
+          "configurations": {
+            "production": {
+              "optimization": {
+                "scripts": true,
+                "styles": false,
+                "fonts": false
+              },
+              "outputHashing": "all",
+              "sourceMap": false,
+              "namedChunks": false,
+              "extractLicenses": true,
+              "vendorChunk": false,
+              "buildOptimizer": true
+            },
+            "development": {
+              "optimization": false,
+              "sourceMap": true,
+              "extractLicenses": false
+            }
+          }
         }
       }
     }

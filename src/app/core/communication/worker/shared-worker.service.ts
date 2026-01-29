@@ -50,16 +50,18 @@ export class SharedWorkerService implements OnDestroy {
 
   private generateTabId(): string {
     // Generate unique tab ID
-    return `tab_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    return `tab_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
   }
 
   private setupWorker() {
     try {
       this.worker = this.workerProvider.createWorker();
+      const worker = this.workerProvider.createWorker();
+      this.worker = worker;
 
       this.ngZone.runOutsideAngular(() => {
         // Listen for messages from worker
-        const message$ = fromEvent<MessageEvent>(this.worker.port, 'message');
+        const message$ = fromEvent<MessageEvent>(worker.port, 'message');
 
         message$.pipe(
           takeUntil(this.destroy$)

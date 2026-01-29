@@ -13,6 +13,7 @@ let workerId = Math.random().toString(36).substring(2, 11);
 let sharedData = new Map<string, any>();
 
 // Handle new connections
+//
 self.onconnect = (event: MessageEvent) => {
   const port = event.ports[0] as ExtendedMessagePort;
   ports.add(port);
