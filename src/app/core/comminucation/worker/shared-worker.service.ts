@@ -19,9 +19,8 @@ export class SharedWorkerService implements OnDestroy {
   private connectionSubject = new BehaviorSubject<boolean>(false);
   private tabId: string;
 
-  // Public observables
-  public messages$: Observable<WorkerMessage>;
-  public connection$: Observable<boolean>;
+  private _messages$: Observable<WorkerMessage> | null = null;
+  private _connection$: Observable<boolean> | null = null;
   public tabCount$ = new BehaviorSubject<number>(1);
 
   constructor(
@@ -30,8 +29,23 @@ export class SharedWorkerService implements OnDestroy {
   ) {
     this.tabId = this.generateTabId();
     this.setupWorker();
-    this.setupObservables();
     this.setupTabCommunication();
+  }
+
+  get messages$(): Observable<WorkerMessage> {
+    if (!this._messages$) {
+      this._messages$ = this.messageSubject.pipe(
+        share()
+      );
+    }
+    return this._messages$;
+  }
+
+  get connection$(): Observable<boolean> {
+    if (!this._connection$) {
+      this._connection$ = this.connectionSubject.asObservable();
+    }
+    return this._connection$;
   }
 
   private generateTabId(): string {
@@ -63,15 +77,6 @@ export class SharedWorkerService implements OnDestroy {
       console.error('Failed to setup SharedWorker:', error);
       this.connectionSubject.next(false);
     }
-  }
-
-  private setupObservables() {
-    // Create shared observable for messages
-    this.messages$ = this.messageSubject.pipe(
-      share()
-    );
-
-    this.connection$ = this.connectionSubject.asObservable();
   }
 
   private setupTabCommunication() {
