@@ -8,7 +8,7 @@ import { StateService } from './core/services/state.service';
 import { AuthService } from './core/services/auth.service';
 import { ThemeService } from './core/services/theme.service';
 import { SharedWorkerService } from '@core/communication/workers/shared-worker'; // ✅ ADDED
-import { WorkerMessageType } from '@core/communication/workers/shared-worker/shared-worker.types'; // ✅ ADDED
+import { WorkerMessageType } from '@core/communication/workers/shared-worker/types'; // ✅ ADDED
 
 import { DragPosition, DraggableDirective, UiDropzoneDirective, DropEvent } from '@core/drag-drop';
 

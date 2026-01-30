@@ -1,4 +1,4 @@
-// vector-shared-worker.types.ts
+// vector-types.ts
 import { Vector2 } from '@core/math/vector/vector2';
 import { Vector3 } from '@core/math/vector/vector3';
 

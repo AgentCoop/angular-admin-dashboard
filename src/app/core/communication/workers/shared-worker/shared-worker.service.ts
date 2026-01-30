@@ -1,36 +1,26 @@
 // shared-worker-shared-worker.service.ts
-import { Injectable, OnDestroy, NgZone, Inject, PLATFORM_ID } from '@angular/core';
-import { isPlatformBrowser } from '@angular/common';
+import {Inject, Injectable, NgZone, OnDestroy, PLATFORM_ID} from '@angular/core';
+import {isPlatformBrowser} from '@angular/common';
+import {v4 as uuid} from 'uuid';
+import {BehaviorSubject, EMPTY, fromEvent, merge, Observable, Subject, Subscription, timer} from 'rxjs';
+import {catchError, debounceTime, distinctUntilChanged, filter, map, share, takeUntil} from 'rxjs/operators';
+import {SharedWorkerProvider} from './shared-worker.provider';
 import {
-  Observable,
-  Subject,
-  BehaviorSubject,
-  fromEvent,
-  merge,
-  timer,
-  Subscription,
-  EMPTY
-} from 'rxjs';
-import {
-  filter,
-  map,
-  tap,
-  takeUntil,
-  share,
-  catchError,
-  timeout,
-  distinctUntilChanged,
-  debounceTime
-} from 'rxjs/operators';
-import { SharedWorkerProvider } from './shared-worker.provider';
-import {
-  WorkerMessage,
-  WorkerMessageType,
-  WorkerMessageDirection,
-  ConnectionStatus,
   BroadcastOptions,
-  TabInfo
-} from './shared-worker.types';
+  ConnectionStatus,
+  OutgoingMessage,
+  TabInfo,
+  WorkerMessage,
+  WorkerMessageDirection,
+  WorkerMessageType
+} from './types';
+import {
+  ExecutionStrategy,
+  HookConfig,
+  HookHandler,
+  HookType,
+  LeaderSelection
+} from '@core/communication/workers/shared-worker/hooks/types';
 
 @Injectable({ providedIn: 'root' })
 export class SharedWorkerService implements OnDestroy {
@@ -47,6 +37,7 @@ export class SharedWorkerService implements OnDestroy {
   private readonly MAX_RECONNECT_ATTEMPTS = 5;
   private pendingRequests = new Map<string, Subject<any>>();
   private heartbeatSubscription?: Subscription;
+  private registeredHookCallbacks = new Map<string, HookHandler>();
 
   // Cache for lazy initialization
   private _messages$: Observable<WorkerMessage> | null = null;
@@ -321,6 +312,10 @@ export class SharedWorkerService implements OnDestroy {
       case WorkerMessageType.PING:
         break;
 
+      case WorkerMessageType.EXECUTE_HOOK:
+        this.handleHookExecution(message);
+        break;
+
       case WorkerMessageType.PONG:
         // Update latency
         const latency = Date.now() - message.timestamp;
@@ -338,6 +333,48 @@ export class SharedWorkerService implements OnDestroy {
 
       default:
         this.messageSubject.next(message);
+    }
+  }
+
+  private async handleHookExecution(msg: any): Promise<void> {
+    const { hookId, hookConfig, data, correlationId } = msg;
+
+    const handler = this.registeredHookCallbacks.get(hookId);
+    if (!handler) {
+      // Respond with error
+      this.postMessage({
+        type: WorkerMessageType.HOOK_EXECUTION_RESULT,
+        correlationId,
+        result: {
+          success: false,
+          shouldContinue: false,
+          error: `Hook ${hookId} not found`
+        },
+        timestamp: Date.now(),
+        direction: WorkerMessageDirection.TO_WORKER
+      });
+      return;
+    }
+
+    try {
+      const result = await handler(data);
+
+      this.postMessage({
+        type: WorkerMessageType.HOOK_EXECUTION_RESULT,
+        result,
+      });
+    } catch (error) {
+      this.postMessage({
+        type: WorkerMessageType.HOOK_EXECUTION_RESULT,
+        correlationId,
+        result: {
+          success: false,
+          shouldContinue: false,
+          error: error instanceof Error ? error.message : 'Unknown error'
+        },
+        timestamp: Date.now(),
+        direction: WorkerMessageDirection.TO_WORKER
+      });
     }
   }
 
@@ -400,7 +437,7 @@ export class SharedWorkerService implements OnDestroy {
 
   // ============ Public API ============
 
-  public postMessage(message: WorkerMessage): void {
+  public postMessage<T extends OutgoingMessage>(message: T): void {
     if (!this.worker || !this.connectionSubject.value.isConnected) {
       console.warn('SharedWorker not connected, message queued:', message.type);
       // TODO: Implement message queue for reconnection
@@ -409,11 +446,18 @@ export class SharedWorkerService implements OnDestroy {
 
     try {
       // Ensure all required properties are set
-      const fullMessage: WorkerMessage = {
+      // const fullMessage = {
+      //   ...message,
+      //   direction: WorkerMessageDirection.TO_WORKER,
+      //   timestamp: Date.now(),
+      //   tabId: this.tabId,
+      // };
+
+      const fullMessage = {
         ...message,
         direction: WorkerMessageDirection.TO_WORKER,
         timestamp: Date.now(),
-      };
+      } as T & { direction: WorkerMessageDirection; timestamp: number };
 
       this.worker.port.postMessage(fullMessage);
     } catch (error) {
@@ -426,12 +470,51 @@ export class SharedWorkerService implements OnDestroy {
     this.postMessage({
       type: WorkerMessageType.BROADCAST,
       payload,
-      tabId: this.tabId,
       options,
-      direction: WorkerMessageDirection.TO_WORKER,
-      timestamp: Date.now(),
     });
   }
+
+  public registerHook(
+    hookType: HookType,
+    handler: HookHandler,
+    strategy: ExecutionStrategy = ExecutionStrategy.SINGLE_TAB,
+    options?: {
+      leaderSelection?: LeaderSelection;
+      targetTabId?: string;
+      description?: string;
+    }
+  ): string {
+    const callbackId = uuid();
+
+    const hookConfig: HookConfig = {
+      type: hookType,
+      strategy,
+      leaderSelection: options?.leaderSelection,
+      targetTabId: options?.targetTabId,
+      description: options?.description
+    };
+
+    // Store the handler locally
+    this.registeredHookCallbacks.set(callbackId, handler);
+
+    // Register with shared worker
+    this.postMessage({
+      type: WorkerMessageType.REGISTER_HOOK,
+      hookType,
+    } as any);
+
+    return callbackId;
+  }
+
+  public unregisterHook(callbackId: string): void {
+    this.postMessage({
+      type: WorkerMessageType.UNREGISTER_HOOK,
+      //callbackId,
+    });
+
+    this.registeredHookCallbacks.delete(callbackId);
+  }
+
 
   public sendToTab<T>(targetTabId: string, payload: T): void {
     // this.postMessage({
