@@ -25,7 +25,7 @@
           "builder": "@angular/build:application",
           "options": {
             "outputPath": {
-              "base": "dist/angular-admin-dashboard"
+              "base": "dist/desktop-ui"
             },
             "index": "src/index.html",
             "browser": "src/main.ts",
@@ -40,8 +40,8 @@
               "src/assets",
               {
                 "glob": "**/*",
-                "input": "dist/workers",
-                "output": "assets/workers"
+                "input": "dist/js",
+                "output": "assets/js"
               }
             ],
             "styles": [
@@ -100,54 +100,6 @@
             }
           },
           "defaultConfiguration": "development"
-        },
-        "build-worker": {
-          "builder": "@angular-devkit/build-angular:webpack-browser",
-          "options": {
-            "customWebpackConfig": {
-              "path": "./webpack.config.worker.js",
-              "mergeRules": {
-                "optimization": "append"
-              }
-            },
-            "outputPath": "dist/workers",
-            "main": "src/app/core/communication/worker/shared-worker.ts",
-            "tsConfig": "tsconfig.worker.json",
-            "polyfills": [],
-            "assets": [],
-            "styles": [],
-            "scripts": [],
-            "optimization": {
-              "scripts": true,
-              "styles": false
-            },
-            "outputHashing": "none",
-            "sourceMap": true,
-            "namedChunks": false,
-            "extractLicenses": false,
-            "vendorChunk": false,
-            "buildOptimizer": false
-          },
-          "configurations": {
-            "production": {
-              "optimization": {
-                "scripts": true,
-                "styles": false,
-                "fonts": false
-              },
-              "outputHashing": "all",
-              "sourceMap": false,
-              "namedChunks": false,
-              "extractLicenses": true,
-              "vendorChunk": false,
-              "buildOptimizer": true
-            },
-            "development": {
-              "optimization": false,
-              "sourceMap": true,
-              "extractLicenses": false
-            }
-          }
         }
       }
     }

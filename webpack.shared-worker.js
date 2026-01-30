@@ -1,4 +1,4 @@
-// webpack.config.worker.js
+// webpack.config.shared-worker.js
 const path = require('path');
 const webpack = require('webpack');
 const TerserPlugin = require('terser-webpack-plugin');
@@ -13,14 +13,14 @@ const projectRoot = path.resolve(__dirname);
 
 module.exports = {
   mode: isProduction ? 'production' : 'development',
-  target: 'webworker', // Important for worker context
+  target: 'webworker', // Important for shared-worker context
   entry: {
-    'shared-worker': path.resolve(__dirname, 'src/app/core/communication/worker/shared-worker.ts'),
+    'shared-worker': path.join(projectRoot, 'src/app/core/communication/workers/shared-worker/shared-worker.ts'),
   },
   output: {
-    filename: isProduction ? 'shared-worker.[contenthash].js' : 'shared-worker.js',
-    path: path.resolve(__dirname, 'dist/workers'),
-    publicPath: '/assets/workers/',
+    filename: 'shared-worker.js',
+    path: path.resolve(__dirname, 'dist/js'),
+    publicPath: '/assets/js/',
     globalObject: 'self', // Required for workers
     clean: true // Clean output directory before build
   },
@@ -29,7 +29,7 @@ module.exports = {
     alias: {
       '@app': path.join(projectRoot, 'src/app'),
       //'@env': path.resolve(__dirname, 'src/environments'),
-      //'@shared': path.resolve(__dirname, 'src/app/shared')
+      //'@shared-worker': path.resolve(__dirname, 'src/app/shared-worker')
     },
     fallback: {
       // Polyfills for Node.js modules that might be used
@@ -47,7 +47,7 @@ module.exports = {
           {
             loader: 'ts-loader',
             options: {
-              configFile: 'tsconfig.worker.json',
+              configFile: 'tsconfig.shared-worker.json',
               transpileOnly: false, // Enable type checking
               compilerOptions: {
                 sourceMap: !isProduction,
@@ -107,14 +107,14 @@ module.exports = {
     concatenateModules: isProduction, // Module concatenation
     usedExports: true, // Tree shaking
     sideEffects: true, // Remove unused modules
-    splitChunks: false, // No code splitting for worker (single file)
+    splitChunks: false, // No code splitting for shared-worker (single file)
     runtimeChunk: false // No runtime chunk
   },
   plugins: [
     new webpack.DefinePlugin({
       'process.env.NODE_ENV': JSON.stringify(isProduction ? 'production' : 'development'),
       'process.env.WORKER_VERSION': JSON.stringify(require('./package.json').version),
-      'self': 'self' // Define self for worker context
+      'self': 'self' // Define self for shared-worker context
     }),
     new webpack.ProvidePlugin({
       // Provide global variables if needed
@@ -124,7 +124,7 @@ module.exports = {
     ...(analyzeBundle ? [
       new BundleAnalyzerPlugin({
         analyzerMode: 'static',
-        reportFilename: 'worker-bundle-report.html',
+        reportFilename: 'shared-worker-bundle-report.html',
         openAnalyzer: false
       })
     ] : [])

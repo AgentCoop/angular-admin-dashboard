@@ -1,4 +1,4 @@
-// shared-worker.service.ts
+// shared-worker-shared-worker.service.ts
 import { Injectable, OnDestroy, NgZone, Inject, PLATFORM_ID } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
 import {
@@ -22,7 +22,7 @@ import {
   distinctUntilChanged,
   debounceTime
 } from 'rxjs/operators';
-import { WorkerProvider } from './worker-provider';
+import { SharedWorkerProvider } from './shared-worker.provider';
 import {
   WorkerMessage,
   WorkerMessageType,
@@ -30,7 +30,7 @@ import {
   ConnectionStatus,
   BroadcastOptions,
   TabInfo
-} from './types';
+} from './shared-worker.types';
 
 @Injectable({ providedIn: 'root' })
 export class SharedWorkerService implements OnDestroy {
@@ -58,7 +58,7 @@ export class SharedWorkerService implements OnDestroy {
   public readonly connection$: Observable<ConnectionStatus>;
 
   constructor(
-    private workerProvider: WorkerProvider,
+    private workerProvider: SharedWorkerProvider,
     private ngZone: NgZone,
     @Inject(PLATFORM_ID) private platformId: any
   ) {
@@ -156,7 +156,7 @@ export class SharedWorkerService implements OnDestroy {
       this.worker.port.start();
       this.updateConnectionStatus(true);
 
-      // Register tab with worker
+      // Register tab with shared-worker
       this.sendTabRegister();
 
     } catch (error) {
@@ -303,7 +303,7 @@ export class SharedWorkerService implements OnDestroy {
 
   private handleWorkerMessage(data: any): void {
     if (!data || !data.type) {
-      console.warn('Invalid worker message:', data);
+      console.warn('Invalid shared-worker message:', data);
       return;
     }
 

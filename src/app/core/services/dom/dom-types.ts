@@ -1,4 +1,4 @@
-// app/core/services/dom/dom-types.ts
+// app/core/services/dom/dom-shared-worker.types.ts
 export interface SelectorTrackingOptions {
   rootElement?: HTMLElement;
   debounceTime?: number;

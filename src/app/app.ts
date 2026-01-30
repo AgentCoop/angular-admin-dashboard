@@ -7,8 +7,8 @@ import { FormsModule } from '@angular/forms';
 import { StateService } from './core/services/state.service';
 import { AuthService } from './core/services/auth.service';
 import { ThemeService } from './core/services/theme.service';
-import { SharedWorkerService } from './core/communication/worker'; // ✅ ADDED
-import { WorkerMessageType } from './core/communication/worker/types'; // ✅ ADDED
+import { SharedWorkerService } from '@core/communication/workers/shared-worker'; // ✅ ADDED
+import { WorkerMessageType } from '@core/communication/workers/shared-worker/shared-worker.types'; // ✅ ADDED
 
 import { DragPosition, DraggableDirective, UiDropzoneDirective, DropEvent } from '@core/drag-drop';
 
@@ -296,7 +296,7 @@ export class App implements OnInit, AfterViewInit, OnDestroy {
     this.subscriptions.push(connectionSub, tabCountSub, messageSub, chatSub, syncSub);
   }
 
-  // ✅ ADDED: Handle incoming worker messages
+  // ✅ ADDED: Handle incoming shared-worker messages
   private handleWorkerMessage(message: any): void {
     switch (message.type) {
       case WorkerMessageType.WORKER_CONNECTED:
@@ -564,7 +564,7 @@ export class App implements OnInit, AfterViewInit, OnDestroy {
     });
     localStorage.setItem('chatPositions', JSON.stringify(positions));
 
-    // Also sync via worker
+    // Also sync via shared-worker
     if (this.workerConnected()) {
       this.workerService.syncData('chat_window_positions', positions);
     }

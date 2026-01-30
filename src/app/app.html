@@ -89,7 +89,7 @@
                     class="send-btn"
                     (click)="sendMessage(window.id)"
                     [disabled]="!window.newMessage.trim() || !workerConnected()"
-                    [title]="!workerConnected() ? 'Not connected to worker' : 'Send message'">
+                    [title]="!workerConnected() ? 'Not connected to shared-sharedWorker' : 'Send message'">
                     Send
                   </button>
                 </div>
@@ -99,7 +99,7 @@
         </div>
 
         <!-- Worker Status Bar -->
-        <div class="worker-status-bar" [class.connected]="workerConnected()">
+        <div class="sharedWorker-status-bar" [class.connected]="workerConnected()">
           <div class="status-indicator"></div>
           <span class="status-text">
     {{ workerConnected() ? '✅ Connected' : '❌ Disconnected' }}

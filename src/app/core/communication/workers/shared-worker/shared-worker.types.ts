@@ -1,4 +1,4 @@
-// types.ts
+// shared-worker.types.ts
 export enum WorkerMessageType {
   // Connection Management
   WORKER_CONNECTED = 'WORKER_CONNECTED',
@@ -136,7 +136,7 @@ export interface SyncDataMessage<T = any> extends BaseWorkerMessage {
    * { key: 'userProfile', value: { avatar: 'new.jpg' }, operation: 'update' }
    * // Results in: { ...existingProfile, avatar: 'new.jpg' }
    *
-   * @example 'delete' - Remove the key from shared storage
+   * @example 'delete' - Remove the key from shared-worker storage
    * { key: 'tempData', operation: 'delete' }
    * // Note: 'value' is ignored for delete operations
    */

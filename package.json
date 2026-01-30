@@ -4,15 +4,14 @@
   "private": true,
   "scripts": {
     "ng": "ng",
-    "start": "concurrently --kill-others \"npm run watch:worker\" \"ng serve --hmr --host 0.0.0.0 --poll 1000\"",
+    "start": "concurrently --kill-others \"npm run watch:shared-worker\" \"ng serve --hmr --host 0.0.0.0 --poll 1000\"",
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
-    "build:worker": "cross-env NODE_ENV=production npx webpack --config webpack.config.worker.js",
-    "build:worker:dev": "cross-env NODE_ENV=development npx webpack --config webpack.config.worker.js",
-    "build:worker:analyze": "cross-env NODE_ENV=production ANALYZE=true npm run build:worker",
+    "build:shared-worker": "cross-env NODE_ENV=production npx webpack --config webpack.shared-worker.js",
+    "build:worker:analyze": "cross-env NODE_ENV=production ANALYZE=true npm run build:shared-worker",
     "build:all": "npm run build:worker && npm run build",
-    "watch:worker": "cross-env NODE_ENV=development npx webpack --config webpack.config.worker.js --watch"
+    "watch:shared-worker": "cross-env NODE_ENV=development npx webpack --config webpack.shared-worker.js --watch"
   },
   "prettier": {
     "printWidth": 100,

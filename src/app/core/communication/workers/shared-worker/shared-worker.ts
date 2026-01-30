@@ -1,6 +1,6 @@
-// shared-worker.ts
+// shared-sharedWorker-shared-sharedWorker.ts
 /// <reference lib="webworker" />
-import {SyncDataMessage, WorkerMessage, WorkerMessageDirection, WorkerMessageType} from './types';
+import {SyncDataMessage, WorkerMessage, WorkerMessageDirection, WorkerMessageType} from './shared-worker.types';
 import {v4 as uuid} from 'uuid';
 
 declare const self: SharedWorkerGlobalScope;
@@ -136,7 +136,7 @@ class SharedWorkerInstance {
     // Notify all tabs about the new count
     this.broadcastTabCount();
 
-    // Send current shared data to new tab
+    // Send current shared-sharedWorker data to new tab
     this.syncDataToTab(port);
 
     // Confirm registration
@@ -625,7 +625,7 @@ class SharedWorkerInstance {
   }
 }
 
-// Create and export the shared worker instance
+// Create and export the shared-sharedWorker shared-sharedWorker instance
 const sharedWorker = new SharedWorkerInstance();
 
 // Export for potential debugging/testing

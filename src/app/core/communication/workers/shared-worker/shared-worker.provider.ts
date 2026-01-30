@@ -1,16 +1,17 @@
-// worker-provider.ts
+// shared-worker-provider.ts
 import { Injectable, Inject, PLATFORM_ID } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
 import { environment } from '@env/environment';
+import { v4 as uuid } from 'uuid';
 
 @Injectable({ providedIn: 'root' })
-export class WorkerProvider {
+export class SharedWorkerProvider {
   private worker: SharedWorker | null = null;
   private readonly workerId: string;
   private readonly isSupported: boolean;
 
   constructor(@Inject(PLATFORM_ID) private platformId: any) {
-    this.workerId = `worker_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
+    this.workerId = uuid();
     this.isSupported = this.checkWorkerSupport();
   }
 
@@ -51,10 +52,10 @@ export class WorkerProvider {
     if (environment.production) {
       // Production: Use hashed bundle file
       const baseUrl = window.location.origin;
-      return `${baseUrl}/assets/workers/shared-worker.js?v=${environment.version || '1.0.0'}`;
+      return `${baseUrl}/assets/js/shared-worker.js?v=${environment.version || '1.0.0'}`;
     } else {
       // Development: Use relative path
-      return '/assets/workers/shared-worker.js';
+      return '/assets/js/shared-worker.js';
     }
   }
 
@@ -67,7 +68,7 @@ export class WorkerProvider {
       try {
         this.worker.port.close();
       } catch (error) {
-        console.warn('Error closing worker port:', error);
+        console.warn('Error closing shared-worker port:', error);
       }
       this.worker = null;
     }

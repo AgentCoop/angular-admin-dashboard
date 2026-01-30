@@ -1,4 +1,4 @@
-// tsconfig.worker.json
+// tsconfig.shared-worker.json
 {
   "extends": "./tsconfig.json",
   "compilerOptions": {
@@ -18,7 +18,7 @@
     //"inlineSources": true,
 
     "experimentalDecorators": true,
-    "emitDecoratorMetadata": false, // Turn off for worker (no Angular DI)
+    "emitDecoratorMetadata": false, // Turn off for shared-worker (no Angular DI)
     "downlevelIteration": true,
     "importHelpers": true,
     "resolveJsonModule": true,
@@ -31,7 +31,7 @@
     "useDefineForClassFields": false
   },
   "include": [
-    "src/app/core/communication/worker/**/*.ts",
+    "src/app/core/communication/workers/shared-worker/**/*.ts",
     "src/app/shared/**/*.ts"
   ],
   "exclude": [

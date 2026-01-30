@@ -6,7 +6,7 @@ export const environment: Environment = {
   production: false,
   version: `${baseEnvironment.version}-dev-${Date.now()}`,
   apiUrl: 'http://localhost:3000/api',
-  workerUrl: '/assets/workers/shared-worker.js',
+  workerUrl: '/assets/js/shared-worker.js',
 
   logLevel: 'debug',
 
