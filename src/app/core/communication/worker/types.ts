@@ -39,18 +39,19 @@ export interface BaseWorkerMessage {
   direction: WorkerMessageDirection;
   correlationId?: string;
   metadata?: Record<string, any>;
-  tabId: string;
+  tabId?: string;
 }
 
 export interface ConnectionMessage extends BaseWorkerMessage {
   type: WorkerMessageType.WORKER_CONNECTED;
   workerId: string;
-  connectedTabs: number;
+  //connectedTabs: number;
 }
 
 export interface TabRegisterMessage extends BaseWorkerMessage {
   type: WorkerMessageType.TAB_REGISTER;
-  tabInfo: TabInfo;
+  workerId: string;
+  totalTabs: number;
 }
 
 export interface TabUnregisterMessage extends BaseWorkerMessage {
@@ -98,9 +99,47 @@ export interface ResponseMessage<T = any> extends BaseWorkerMessage {
 }
 
 export interface SyncDataMessage<T = any> extends BaseWorkerMessage {
+  /**
+   * Message type identifier for data synchronization operations.
+   * Used by the Shared Worker to route messages to the appropriate handler.
+   */
   type: WorkerMessageType.SYNC_DATA;
+
+  /**
+   * Unique key identifying the data being synchronized.
+   * This acts as a storage identifier within the Shared Worker's data map.
+   * Example: 'userPreferences', 'shoppingCart', 'sessionToken'
+   */
   key: string;
+
+  /**
+   * The data value to be synchronized across all connected tabs.
+   * Can be any serializable JavaScript type (object, array, primitive).
+   * Generic type <T> allows for type-safe usage in TypeScript.
+   *
+   * @example
+   * // String value
+   * { key: 'theme', value: 'dark' }
+   */
   value: T;
+
+  /**
+   * Optional operation type defining how the data should be processed.
+   * Controls how the Shared Worker handles the incoming data.
+   *
+   * @default 'set' - Overwrites existing value with the new value
+   *
+   * @example 'set' - Replace entire value
+   * { key: 'cart', value: newCart, operation: 'set' }
+   *
+   * @example 'update' - Merge/update partial data (useful for objects)
+   * { key: 'userProfile', value: { avatar: 'new.jpg' }, operation: 'update' }
+   * // Results in: { ...existingProfile, avatar: 'new.jpg' }
+   *
+   * @example 'delete' - Remove the key from shared storage
+   * { key: 'tempData', operation: 'delete' }
+   * // Note: 'value' is ignored for delete operations
+   */
   operation?: 'set' | 'update' | 'delete';
 }
 
