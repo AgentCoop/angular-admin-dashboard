@@ -1,16 +1,15 @@
-import { Component, OnInit, OnDestroy, inject, signal, ViewChild, ElementRef, AfterViewInit } from '@angular/core';
-import { CommonModule } from '@angular/common';
-import { Router, RouterModule, NavigationEnd } from '@angular/router';
-import { Subscription, combineLatest } from 'rxjs';
-import { filter, map } from 'rxjs/operators';
-import { FormsModule } from '@angular/forms';
-import { StateService } from './core/services/state.service';
-import { AuthService } from './core/services/auth.service';
-import { ThemeService } from './core/services/theme.service';
-import { SharedWorkerService } from '@core/communication/workers/shared-worker'; // ✅ ADDED
-import { WorkerMessageType } from '@core/communication/workers/shared-worker/shared-worker.types'; // ✅ ADDED
-
-import { DragPosition, DraggableDirective, UiDropzoneDirective, DropEvent } from '@core/drag-drop';
+import {AfterViewInit, Component, ElementRef, inject, OnDestroy, OnInit, signal, ViewChild} from '@angular/core';
+import {CommonModule} from '@angular/common';
+import {NavigationEnd, Router, RouterModule} from '@angular/router';
+import {combineLatest, Subscription} from 'rxjs';
+import {filter, map} from 'rxjs/operators';
+import {FormsModule} from '@angular/forms';
+import {StateService} from './core/services/state.service';
+import {AuthService} from './core/services/auth.service';
+import {ThemeService} from './core/services/theme.service';
+import {HookType, SharedWorkerService} from '@core/communication/workers/shared-worker'; // ✅ ADDED
+import {WorkerMessageType} from '@core/communication/workers/shared-worker/types'; // ✅ ADDED
+import {DraggableDirective, DragPosition} from '@core/drag-drop';
 
 interface ColoredSquare {
   id: number;
@@ -70,8 +69,7 @@ interface ChatMessage {
     CommonModule,
     RouterModule,
     FormsModule,
-    DraggableDirective,
-    UiDropzoneDirective
+    DraggableDirective
   ],
   templateUrl: './app.html',
   styleUrls: ['./app.scss'],
@@ -259,6 +257,14 @@ export class App implements OnInit, AfterViewInit, OnDestroy {
 
   // ✅ ADDED: Initialize Shared Worker
   private initializeWorker(): void {
+    this.workerService.registerHook(HookType.BEFORE_BROADCAST, (data) => {
+      console.log('Hook, data %o', data);
+      return {
+        success: true,
+        shouldContinue: true,
+      }
+    });
+
     // Monitor connection status
     const connectionSub = this.workerService.connection$.subscribe(status => {
       this.workerConnected.set(status.isConnected);

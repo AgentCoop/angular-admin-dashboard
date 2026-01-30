@@ -1,37 +1,35 @@
 // shared-sharedWorker-shared-sharedWorker.ts
 /// <reference lib="webworker" />
-import {SyncDataMessage, WorkerMessage, WorkerMessageDirection, WorkerMessageType} from './shared-worker.types';
-import {v4 as uuid} from 'uuid';
+
+import { HookManager } from './hooks/hook-manager';
+import {
+  SyncDataMessage, WorkerMessage, WorkerMessageDirection, WorkerMessageType, ExtendedMessagePort,
+  RegisterHookMessage, TabRegisterMessage, BroadcastMessage
+} from './types';
+import { v4 as uuid } from 'uuid';
+import {HookType} from './hooks/types';
 
 declare const self: SharedWorkerGlobalScope;
 
-interface ExtendedMessagePort extends MessagePort {
-  tabId?: string;
-  lastHeartbeat?: number;
-  isActive?: boolean;
-}
-
-interface BroadcastOptions {
-  excludeSender?: boolean;
-  targetTabId?: string;
-}
-
 class SharedWorkerInstance {
-  private ports: Map<string, ExtendedMessagePort> = new Map(); // keyed by tabId
+  private ports: Map<string, ExtendedMessagePort> = new Map(); // keyed by connectionId
   private readonly workerId: string;
   private sharedData: Map<string, any> = new Map();
+  private hookManager: HookManager;
   private heartbeatInterval?: number;
   private connectionCounter: number = 0;
 
   constructor() {
     this.workerId = uuid();
-    console.log('🧵 SHARED WORKER: Initialized with ID:', this.workerId);
-    console.log('🧵 Worker location:', self.location.href);
+    console.log('SHARED WORKER: Initialized with ID: %s, location: %s', this.workerId, self.location.href);
 
-    this.initialize();
-  }
+    this.hookManager = new HookManager({
+      workerId: this.workerId
+    });
 
-  private initialize(): void {
+    // Set up port finder for callback support
+    this.hookManager.setPortFinder(this.findPortByTabId.bind(this));
+
     // Set up connection handler
     self.onconnect = this.handleConnection.bind(this);
 
@@ -42,9 +40,18 @@ class SharedWorkerInstance {
     self.onerror = this.handleError.bind(this);
   }
 
+  private findPortByTabId(tabId: string): MessagePort | undefined {
+    for (const port of this.ports.values()) {
+      if (port.tabId === tabId) {
+        return port;
+      }
+    }
+    return undefined;
+  }
+
   private handleConnection(event: MessageEvent): void {
     const port = event.ports[0] as ExtendedMessagePort;
-    const connectionId = `conn_${++this.connectionCounter}_${Date.now()}`;
+    const connectionId = uuid();
 
     // Store port with connection ID initially
     this.ports.set(connectionId, port);
@@ -52,11 +59,11 @@ class SharedWorkerInstance {
     console.log(`[SharedWorker] New connection (${connectionId}). Total: ${this.ports.size}`);
 
     // Set up message handler
-    port.onmessage = (e: MessageEvent<WorkerMessage>) => {
+    port.onmessage = async (e: MessageEvent<WorkerMessage>) => {
       console.log('[SharedWorker] Message from', connectionId, ':', e.data);
 
       if (e.data) {
-        this.handleMessage(e.data, port, connectionId);
+        await this.handleMessage(e.data, port, connectionId);
       }
     };
 
@@ -67,12 +74,9 @@ class SharedWorkerInstance {
     };
 
     port.start();
-
-    // Send welcome message
-    this.sendWelcomeMessage(port);
   }
 
-  private handleMessage(data: WorkerMessage, sourcePort: ExtendedMessagePort, connectionId: string): void {
+  private async handleMessage(data: WorkerMessage, sourcePort: ExtendedMessagePort, connectionId: string): Promise<void> {
     // Update heartbeat on any message
     sourcePort.lastHeartbeat = Date.now();
 
@@ -83,6 +87,14 @@ class SharedWorkerInstance {
 
       case WorkerMessageType.TAB_UNREGISTER:
         this.handleTabUnregister(connectionId);
+        break;
+
+      case WorkerMessageType.REGISTER_HOOK:
+        this.handleRegisterHook(data, sourcePort);
+        break;
+
+      case WorkerMessageType.HOOK_EXECUTION_RESULT:
+        console.log('hook execution result');
         break;
 
       case WorkerMessageType.BROADCAST:
@@ -111,8 +123,18 @@ class SharedWorkerInstance {
     }
   }
 
-  private handleTabRegister(data: WorkerMessage, port: ExtendedMessagePort, connectionId: string): void {
-    const { tabId } = data as any;
+  /**
+   * Handle callback registration
+   */
+  private handleRegisterHook(message: RegisterHookMessage, sourcePort: ExtendedMessagePort): void {
+    const { hookId, descriptor } = message;
+    const tabId = sourcePort.tabId!;
+
+    this.hookManager.registerHook(hookId, descriptor, tabId);
+  }
+
+  private handleTabRegister(data: TabRegisterMessage, port: ExtendedMessagePort, connectionId: string): void {
+    const { tabId } = data;
 
     if (!tabId) {
       console.error('[SharedWorker] Tab register missing tabId');
@@ -123,37 +145,29 @@ class SharedWorkerInstance {
     // Update port with tabId
     port.tabId = tabId;
     port.isActive = true;
-    port.lastHeartbeat = Date.now();
+    port.lastActive = Date.now();
 
-    // Move from connectionId to tabId in the map
-    if (this.ports.has(connectionId)) {
-      this.ports.delete(connectionId);
-    }
-    this.ports.set(tabId, port);
+    this.ports.set(connectionId, port);
 
     console.log(`[SharedWorker] Tab registered: ${tabId}. Total tabs: ${this.getActiveTabsCount()}`);
+
+    this.hookManager.addPort(tabId, port);
 
     // Notify all tabs about the new count
     this.broadcastTabCount();
 
     // Send current shared-sharedWorker data to new tab
     this.syncDataToTab(port);
-
-    // Confirm registration
-    this.sendMessage(port, {
-      type: WorkerMessageType.TAB_REGISTER,
-      tabId,
-      workerId: this.workerId,
-      timestamp: Date.now(),
-      direction: WorkerMessageDirection.FROM_WORKER,
-      totalTabs: this.getActiveTabsCount()
-    });
   }
 
-  private handleTabUnregister(tabId: string): void {
-    if (this.ports.has(tabId)) {
-      this.ports.delete(tabId);
-      console.log(`[SharedWorker] Tab unregistered: ${tabId}. Remaining: ${this.getActiveTabsCount()}`);
+  private handleTabUnregister(connectionId: string): void {
+    if (this.ports.has(connectionId)) {
+      const tabId = this.ports.get(connectionId)!.tabId;
+
+      this.ports.delete(connectionId);
+      console.log(`[SharedWorker] Tab unregistered: ${connectionId}. Remaining: ${this.getActiveTabsCount()}`);
+
+      this.hookManager.removePort(tabId);
       this.broadcastTabCount();
     }
   }
@@ -412,17 +426,15 @@ class SharedWorkerInstance {
     }
   }
 
-  private broadcastMessage(
+  private async broadcastMessage(
     message: WorkerMessage,
     sourcePort: ExtendedMessagePort,
-    options: { excludeSender?: boolean } = { excludeSender: true }
-  ): void {
-    const { excludeSender = true } = options;
-    const sourceTabId = sourcePort.tabId || 'unknown';
+  ): Promise<void> {
+    // Execute BEFORE_BROADCAST hook
+    this.hookManager.executeHooks(HookType.BEFORE_BROADCAST, message);
 
     this.ports.forEach((port, tabId) => {
-      // Skip sender if excludeSender is true
-      if (excludeSender && port === sourcePort) {
+      if (port === sourcePort) {
         return;
       }
 
@@ -431,7 +443,7 @@ class SharedWorkerInstance {
         ...message,
         timestamp: Date.now(),
         direction: WorkerMessageDirection.FROM_WORKER,
-        tabId: sourceTabId, // Include source tabId for context
+        tabId: port.tabId,
       };
 
       try {
@@ -440,6 +452,9 @@ class SharedWorkerInstance {
         console.warn(`[SharedWorker] Failed to broadcast to tab ${tabId}:`, error);
       }
     });
+
+    // Execute AFTER_BROADCAST hook
+    this.hookManager.executeHooks(HookType.AFTER_BROADCAST, message);
   }
 
   private broadcastToOthers(sourcePort: ExtendedMessagePort, message: WorkerMessage): void {
@@ -625,7 +640,7 @@ class SharedWorkerInstance {
   }
 }
 
-// Create and export the shared-sharedWorker shared-sharedWorker instance
+// Create and export the SharedWorkerInstance instance
 const sharedWorker = new SharedWorkerInstance();
 
 // Export for potential debugging/testing

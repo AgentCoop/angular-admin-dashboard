@@ -1,4 +1,4 @@
-// src/app/core/drag-drop/drag-drop.shared-worker.types.ts
+// src/app/core/drag-drop/drag-drop.types.ts
 import { InjectionToken } from '@angular/core';
 import {OverlapResult} from '@core/dom/overlap';
 

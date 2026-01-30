@@ -13,7 +13,7 @@
     "forceConsistentCasingInFileNames": true,
     "declaration": false,
 
-
+    "types": [],
    // "sourceMap": true,
     //"inlineSources": true,
 
@@ -31,8 +31,9 @@
     "useDefineForClassFields": false
   },
   "include": [
-    "src/app/core/communication/workers/shared-worker/**/*.ts",
-    "src/app/shared/**/*.ts"
+    "src/app/core/communication/workers/shared-worker/hooks/*.ts",
+    "src/app/core/communication/workers/shared-worker/shared-worker.ts",
+    "src/app/core/communication/workers/shared-worker/types.ts",
   ],
   "exclude": [
     "node_modules",

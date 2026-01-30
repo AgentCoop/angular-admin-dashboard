@@ -1,5 +1,24 @@
-// shared-worker.types.ts
+// types.ts
+
+
+import {HookDescriptor, HookResult, HookType} from '@core/communication/workers/shared-worker/hooks/types';
+
+export interface ExtendedMessagePort extends MessagePort {
+  tabId: string;
+  lastHeartbeat?: number;
+  lastActive: number;
+  isActive?: boolean;
+}
+
 export enum WorkerMessageType {
+  // Hook management
+  REGISTER_HOOK = 'REGISTER_HOOK',
+  UNREGISTER_HOOK = 'UNREGISTER_HOOK',
+  EXECUTE_HOOK = 'EXECUTE_HOOK',
+  HOOK_EXECUTION_RESULT = 'HOOK_EXECUTION_RESULT',
+  HOOK_ASSIGNMENT = 'HOOK_ASSIGNMENT',
+  LEADER_CHANGE = 'LEADER_CHANGE',
+
   // Connection Management
   WORKER_CONNECTED = 'WORKER_CONNECTED',
   TAB_REGISTER = 'TAB_REGISTER',
@@ -38,20 +57,17 @@ export interface BaseWorkerMessage {
   timestamp: number;
   direction: WorkerMessageDirection;
   correlationId?: string;
-  metadata?: Record<string, any>;
   tabId?: string;
 }
 
 export interface ConnectionMessage extends BaseWorkerMessage {
   type: WorkerMessageType.WORKER_CONNECTED;
   workerId: string;
-  //connectedTabs: number;
 }
 
 export interface TabRegisterMessage extends BaseWorkerMessage {
   type: WorkerMessageType.TAB_REGISTER;
-  workerId: string;
-  totalTabs: number;
+  url: string;
 }
 
 export interface TabUnregisterMessage extends BaseWorkerMessage {
@@ -71,9 +87,6 @@ export interface TabVisibilityMessage extends BaseWorkerMessage {
 export interface BroadcastMessage<T = any> extends BaseWorkerMessage {
   type: WorkerMessageType.BROADCAST;
   payload: T;
-  sender?: string;
-  target?: string; // Optional specific tab ID
-  options?: BroadcastOptions;
 }
 
 export interface TargetedMessage<T = any> extends BaseWorkerMessage {
@@ -158,6 +171,26 @@ export interface ErrorMessage extends BaseWorkerMessage {
   originalMessage?: BaseWorkerMessage;
 }
 
+export interface RegisterHookMessage extends BaseWorkerMessage {
+  type: WorkerMessageType.REGISTER_HOOK;
+  hookId: string,
+  descriptor: HookDescriptor,
+}
+
+export interface UnregisterHookMessage extends BaseWorkerMessage {
+  type: WorkerMessageType.UNREGISTER_HOOK;
+  hookId: string;
+}
+
+export interface ExecuteHookMessage extends BaseWorkerMessage {
+  type: WorkerMessageType.EXECUTE_HOOK;
+}
+
+export interface ExecuteHookResultMessage extends BaseWorkerMessage {
+  type: WorkerMessageType.HOOK_EXECUTION_RESULT;
+  result: HookResult
+}
+
 // Union type for all messages
 export type WorkerMessage =
   | ConnectionMessage
@@ -172,7 +205,14 @@ export type WorkerMessage =
   | SyncDataMessage
   | PingMessage
   | PongMessage
-  | ErrorMessage;
+  | ErrorMessage
+  | RegisterHookMessage
+  | UnregisterHookMessage
+  | ExecuteHookMessage
+  | ExecuteHookResultMessage;
+;
+
+export type OutgoingMessage = Omit<WorkerMessage, 'direction' | 'timestamp' | 'tabId'>;
 
 // Supporting interfaces
 export interface TabInfo {

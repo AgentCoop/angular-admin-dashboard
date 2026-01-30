@@ -8,4 +8,6 @@ export { SharedWorkerService } from './shared-worker.service';
 export { SharedWorkerProvider } from './shared-worker.provider';
 
 // Export types
-export * from './shared-worker.types';
+export * from './types';
+
+export * from './hooks/types';

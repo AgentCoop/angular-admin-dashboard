@@ -1,36 +1,23 @@
 // shared-worker-shared-worker.service.ts
-import { Injectable, OnDestroy, NgZone, Inject, PLATFORM_ID } from '@angular/core';
-import { isPlatformBrowser } from '@angular/common';
+import {Inject, Injectable, NgZone, OnDestroy, PLATFORM_ID} from '@angular/core';
+import {isPlatformBrowser} from '@angular/common';
+import {v4 as uuid} from 'uuid';
+import {BehaviorSubject, EMPTY, fromEvent, merge, Observable, Subject, Subscription, timer} from 'rxjs';
+import {catchError, debounceTime, distinctUntilChanged, filter, map, share, takeUntil} from 'rxjs/operators';
+import {SharedWorkerProvider} from './shared-worker.provider';
 import {
-  Observable,
-  Subject,
-  BehaviorSubject,
-  fromEvent,
-  merge,
-  timer,
-  Subscription,
-  EMPTY
-} from 'rxjs';
-import {
-  filter,
-  map,
-  tap,
-  takeUntil,
-  share,
-  catchError,
-  timeout,
-  distinctUntilChanged,
-  debounceTime
-} from 'rxjs/operators';
-import { SharedWorkerProvider } from './shared-worker.provider';
-import {
-  WorkerMessage,
-  WorkerMessageType,
-  WorkerMessageDirection,
-  ConnectionStatus,
   BroadcastOptions,
-  TabInfo
-} from './shared-worker.types';
+  ConnectionStatus,
+  OutgoingMessage,
+  RegisterHookMessage,
+  TabRegisterMessage,
+  TabUnregisterMessage,
+  UnregisterHookMessage,
+  WorkerMessage,
+  WorkerMessageDirection,
+  WorkerMessageType
+} from './types';
+import {ExecutionStrategy, HookHandler, HookType,} from '@core/communication/workers/shared-worker/hooks/types';
 
 @Injectable({ providedIn: 'root' })
 export class SharedWorkerService implements OnDestroy {
@@ -42,11 +29,11 @@ export class SharedWorkerService implements OnDestroy {
     connectedTabs: 1
   });
 
-  private tabId: string;
+  private readonly tabId: string;
   private reconnectAttempts = 0;
   private readonly MAX_RECONNECT_ATTEMPTS = 5;
-  private pendingRequests = new Map<string, Subject<any>>();
   private heartbeatSubscription?: Subscription;
+  private registeredHookCallbacks = new Map<string, HookHandler>();
 
   // Cache for lazy initialization
   private _messages$: Observable<WorkerMessage> | null = null;
@@ -67,7 +54,7 @@ export class SharedWorkerService implements OnDestroy {
     this.connection$ = this.getConnectionObservable();
 
     if (isPlatformBrowser(this.platformId)) {
-      this.tabId = this.generateTabId();
+      this.tabId = uuid();
       this.initialize();
     } else {
       console.warn('SharedWorkerService: Running in non-browser environment');
@@ -82,6 +69,7 @@ export class SharedWorkerService implements OnDestroy {
     this.setupMessageHandlers();
     this.startHeartbeat();
     this.setupAutoReconnect();
+    this.setupUnloadHandler();
   }
 
   private getMessagesObservable(): Observable<WorkerMessage> {
@@ -109,19 +97,6 @@ export class SharedWorkerService implements OnDestroy {
       );
     }
     return this._connection$;
-  }
-
-  private generateTabId(): string {
-    // Generate persistent tab ID
-    const storageKey = 'angular_worker_tab_id';
-    let tabId = sessionStorage.getItem(storageKey);
-
-    if (!tabId) {
-      tabId = `tab_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
-      sessionStorage.setItem(storageKey, tabId);
-    }
-
-    return tabId;
   }
 
   private setupWorker(): void {
@@ -166,26 +141,12 @@ export class SharedWorkerService implements OnDestroy {
   }
 
   private sendTabRegister(): void {
-    const tabInfo: TabInfo = {
-      id: this.tabId,
+    const registerTabMessage = {
+      type: WorkerMessageType.TAB_REGISTER,
       url: window.location.href,
-      title: document.title,
-      userAgent: navigator.userAgent,
-      lastActive: Date.now(),
-      isActive: true,
-      metadata: {
-        angular: true,
-        timestamp: Date.now()
-      }
-    };
+    } as TabRegisterMessage;
 
-    // this.postMessage({
-    //   type: WorkerMessageType.TAB_REGISTER,
-    //   tabId: this.tabId,
-    //   //tabInfo,
-    //   //direction: WorkerMessageDirection.TO_WORKER,
-    //   //timestamp: Date.now()
-    // });
+    this.postMessage(registerTabMessage);
   }
 
   private setupTabCommunication(): void {
@@ -247,25 +208,6 @@ export class SharedWorkerService implements OnDestroy {
     //   );
     // });
 
-    // Handle responses to pending requests
-    this.messages$.pipe(
-      filter(msg => msg.type === WorkerMessageType.RESPONSE && !!msg.correlationId),
-      takeUntil(this.destroy$)
-    ).subscribe((msg: any) => {
-      const requestId = msg.correlationId;
-      const responseSubject = this.pendingRequests.get(requestId);
-
-      if (responseSubject) {
-        if (msg.success) {
-          responseSubject.next(msg.payload);
-          responseSubject.complete();
-        } else {
-          responseSubject.error(new Error(msg.error || 'Request failed'));
-        }
-        this.pendingRequests.delete(requestId);
-      }
-    });
-
     // Handle broadcast messages
     // this.messages$.pipe(
     //   filter(msg => msg.type === WorkerMessageType.BROADCAST),
@@ -301,11 +243,45 @@ export class SharedWorkerService implements OnDestroy {
     });
   }
 
+  private setupUnloadHandler(): void {
+    // Handle tab/window close
+    const handleBeforeUnload = () => {
+      this.unregisterTab();
+    };
+
+    // Use both beforeunload and pagehide for better coverage
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    window.addEventListener('pagehide', handleBeforeUnload);
+
+    // Cleanup - though this won't really fire since tab is closing
+    this.destroy$.subscribe(() => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      window.removeEventListener('pagehide', handleBeforeUnload);
+    });
+  }
+
+  private unregisterTab(): void {
+    if (this.connectionSubject.value.isConnected) {
+      try {
+        // Send immediate unregister message
+        const unregisterMessage = {
+          type: WorkerMessageType.TAB_UNREGISTER,
+        } as TabUnregisterMessage;
+
+        this.postMessage(unregisterMessage);
+      } catch (error) {
+        console.warn('Failed to send unregister message:', error);
+      }
+    }
+  }
+
   private handleWorkerMessage(data: any): void {
     if (!data || !data.type) {
       console.warn('Invalid shared-worker message:', data);
       return;
     }
+
+    console.log('worker message %o', data);
 
     const message: WorkerMessage = {
       ...data,
@@ -319,6 +295,10 @@ export class SharedWorkerService implements OnDestroy {
         break;
 
       case WorkerMessageType.PING:
+        break;
+
+      case WorkerMessageType.EXECUTE_HOOK:
+        this.handleHookExecution(message);
         break;
 
       case WorkerMessageType.PONG:
@@ -338,6 +318,48 @@ export class SharedWorkerService implements OnDestroy {
 
       default:
         this.messageSubject.next(message);
+    }
+  }
+
+  private async handleHookExecution(msg: any): Promise<void> {
+    const { hookId, hookConfig, data, correlationId } = msg;
+
+    const handler = this.registeredHookCallbacks.get(hookId);
+    if (!handler) {
+      // Respond with error
+      this.postMessage({
+        type: WorkerMessageType.HOOK_EXECUTION_RESULT,
+        correlationId,
+        result: {
+          success: false,
+          shouldContinue: false,
+          error: `Hook ${hookId} not found`
+        },
+        timestamp: Date.now(),
+        direction: WorkerMessageDirection.TO_WORKER
+      });
+      return;
+    }
+
+    try {
+      const result = await handler(data);
+
+      this.postMessage({
+        type: WorkerMessageType.HOOK_EXECUTION_RESULT,
+        result,
+      });
+    } catch (error) {
+      this.postMessage({
+        type: WorkerMessageType.HOOK_EXECUTION_RESULT,
+        correlationId,
+        result: {
+          success: false,
+          shouldContinue: false,
+          error: error instanceof Error ? error.message : 'Unknown error'
+        },
+        timestamp: Date.now(),
+        direction: WorkerMessageDirection.TO_WORKER
+      });
     }
   }
 
@@ -400,7 +422,7 @@ export class SharedWorkerService implements OnDestroy {
 
   // ============ Public API ============
 
-  public postMessage(message: WorkerMessage): void {
+  public postMessage<T extends OutgoingMessage>(message: T): void {
     if (!this.worker || !this.connectionSubject.value.isConnected) {
       console.warn('SharedWorker not connected, message queued:', message.type);
       // TODO: Implement message queue for reconnection
@@ -408,12 +430,12 @@ export class SharedWorkerService implements OnDestroy {
     }
 
     try {
-      // Ensure all required properties are set
-      const fullMessage: WorkerMessage = {
+      const fullMessage = {
         ...message,
         direction: WorkerMessageDirection.TO_WORKER,
         timestamp: Date.now(),
-      };
+        tabId: this.tabId,
+      } as T & { direction: WorkerMessageDirection; timestamp: number };
 
       this.worker.port.postMessage(fullMessage);
     } catch (error) {
@@ -426,63 +448,45 @@ export class SharedWorkerService implements OnDestroy {
     this.postMessage({
       type: WorkerMessageType.BROADCAST,
       payload,
-      tabId: this.tabId,
       options,
-      direction: WorkerMessageDirection.TO_WORKER,
-      timestamp: Date.now(),
     });
   }
 
-  public sendToTab<T>(targetTabId: string, payload: T): void {
-    // this.postMessage({
-    //   type: WorkerMessageType.TARGETED_MESSAGE,
-    //   //targetTabId,
-    //   //payload,
-    //   tabId: this.tabId
-    // });
+  public registerHook(
+    hookType: HookType,
+    handler: HookHandler,
+    strategy: ExecutionStrategy = ExecutionStrategy.SINGLE_RANDOM,
+    options?: { }
+  ): string {
+    const hookId = uuid();
+
+    const registerHookMessage = {
+      type: WorkerMessageType.REGISTER_HOOK,
+      hookId,
+      descriptor: {
+        type: hookType,
+        strategy,
+      },
+    } as RegisterHookMessage;
+
+    // Store the handler locally
+    this.registeredHookCallbacks.set(hookId, handler);
+
+    // Register with shared worker
+    this.postMessage(registerHookMessage);
+
+    return hookId;
   }
 
-  public request<T = any, R = any>(
-    type: string,
-    payload?: T,
-    timeoutMs: number = 10000
-  ): Observable<R> {
-    const correlationId = `${this.tabId}_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
+  public unregisterHook(hookId: string): void {
+    const m = {
+      type: WorkerMessageType.UNREGISTER_HOOK,
+      hookId,
+    } as UnregisterHookMessage;
 
-    return new Observable<R>(subscriber => {
-      const responseSubject = new Subject<R>();
-      this.pendingRequests.set(correlationId, responseSubject);
+    this.postMessage(m);
 
-      // Set timeout
-      const timeoutId = setTimeout(() => {
-        if (this.pendingRequests.has(correlationId)) {
-          subscriber.error(new Error(`Request timeout after ${timeoutMs}ms`));
-          this.pendingRequests.delete(correlationId);
-        }
-      }, timeoutMs);
-
-      // Send request
-      //this.postMessage({
-      //   type: WorkerMessageType.REQUEST,
-      //   //payload: { type, data: payload },
-      //   correlationId,
-      //   tabId: this.tabId
-      //});
-
-      // Subscribe to response
-      const subscription = responseSubject.subscribe({
-        next: (response) => subscriber.next(response),
-        error: (error) => subscriber.error(error),
-        complete: () => subscriber.complete()
-      });
-
-      // Cleanup
-      return () => {
-        clearTimeout(timeoutId);
-        subscription.unsubscribe();
-        this.pendingRequests.delete(correlationId);
-      };
-    });
+    this.registeredHookCallbacks.delete(hookId);
   }
 
   public syncData<T>(key: string, value: T): void {
@@ -539,12 +543,5 @@ export class SharedWorkerService implements OnDestroy {
     this.tabCount$.complete();
     this.connectionSubject.complete();
     this.messageSubject.complete();
-
-    // Cleanup pending requests
-    this.pendingRequests.forEach(subject => {
-      subject.error(new Error('Service destroyed'));
-      subject.complete();
-    });
-    this.pendingRequests.clear();
   }
 }
