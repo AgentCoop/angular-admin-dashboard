@@ -1,11 +1,11 @@
-// services/centrifuge.service.ts
-import { Injectable, signal, OnDestroy, NgZone, computed } from '@angular/core';
-import { BehaviorSubject } from 'rxjs';
 import {
   Centrifuge,
   Subscription as CentrifugeSubscription,
   StreamPosition
 } from 'centrifuge';
+import { BehaviorSubject, Observable, Subscription } from 'rxjs';
+import { NetworkMonitor, NetworkMonitorFactory } from '../../network-monitor';
+import { map } from 'rxjs/operators';
 
 export enum ConnectionState {
   DISCONNECTED = 'disconnected',
@@ -24,11 +24,18 @@ export interface SubscriptionInfo {
   isActive: boolean;
 }
 
-@Injectable({ providedIn: 'root' })
-export class CentrifugeService implements OnDestroy {
+export class CentrifugeService {
   private centrifuge!: Centrifuge;
-  private connectionState = signal<ConnectionState>(ConnectionState.DISCONNECTED);
-  private reconnectAttempts = signal(0);
+
+  // Network Monitor Integration
+  private readonly networkMonitor: NetworkMonitor;
+  private networkMonitorSubscriptions: Subscription[] = [];
+
+  // RxJS Subjects for reactive state
+  private connectionStateSubject = new BehaviorSubject<ConnectionState>(ConnectionState.DISCONNECTED);
+  private subscriptionCountSubject = new BehaviorSubject<number>(0);
+  private reconnectAttemptsSubject = new BehaviorSubject<number>(0);
+
   private maxReconnectAttempts = 10;
   private baseReconnectDelay = 1000;
   private maxReconnectDelay = 30000;
@@ -36,28 +43,148 @@ export class CentrifugeService implements OnDestroy {
   private reconnectTimeoutId: any = null;
   private healthCheckIntervalId: any = null;
 
-  // Track all created subscriptions
   private activeSubscriptions = new Map<string, SubscriptionInfo>();
-  private subscriptionCount = signal(0);
 
-  // Public observables
-  public connectionState$ = new BehaviorSubject<ConnectionState>(ConnectionState.DISCONNECTED);
-  public isConnected = computed(() => this.connectionState() === ConnectionState.CONNECTED);
-  public activeSubscriptionCount = computed(() => this.subscriptionCount());
+  // Public Observables
+  public connectionState$: Observable<ConnectionState>;
+  public subscriptionCount$: Observable<number>;
+  public reconnectAttempts$: Observable<number>;
+  public isConnected$: Observable<boolean>;
 
-  constructor(private ngZone: NgZone) {
-    this.ngZone.runOutsideAngular(() => {
-      this.setupConnectionMonitoring();
+  constructor(
+    networkMonitor?: NetworkMonitor // Optional dependency injection
+  ) {
+    // Initialize Network Monitor
+    this.networkMonitor = networkMonitor || NetworkMonitorFactory.autoCreate();
+    this.startNetworkMonitoring();
+
+    this.connectionState$ = this.connectionStateSubject.asObservable();
+    this.subscriptionCount$ = this.subscriptionCountSubject.asObservable();
+    this.reconnectAttempts$ = this.reconnectAttemptsSubject.asObservable();
+    this.isConnected$ = this.connectionState$.pipe(
+      map(state => state === ConnectionState.CONNECTED)
+    );
+  }
+
+  /**
+   * Get the current network monitor instance
+   */
+  public getNetworkMonitor(): NetworkMonitor {
+    return this.networkMonitor;
+  }
+
+  /**
+   * Start network monitoring and set up event handlers
+   */
+  private startNetworkMonitoring(): void {
+    if (!this.networkMonitor.isMonitoring()) {
+      this.networkMonitor.startMonitoring();
+    }
+
+    // Subscribe to online events specifically
+    const onlineSub = this.networkMonitor.getOnline$().subscribe(() => {
+      this.onNetworkBackOnline();
     });
+
+    // Subscribe to offline events specifically
+    const offlineSub = this.networkMonitor.getOffline$().subscribe(() => {
+      this.onNetworkOffline();
+    });
+
+    this.networkMonitorSubscriptions.push(onlineSub, offlineSub);
+  }
+
+  /**
+   * Stop network monitoring and clean up subscriptions
+   */
+  private stopNetworkMonitoring(): void {
+    // Unsubscribe from all network monitor observables
+    this.networkMonitorSubscriptions.forEach(sub => sub.unsubscribe());
+    this.networkMonitorSubscriptions = [];
+
+    // Stop the network monitor
+    if (this.networkMonitor.isMonitoring()) {
+      this.networkMonitor.stopMonitoring();
+    }
+  }
+
+  /**
+   * Handle network going offline
+   */
+  private onNetworkOffline(): void {
+    console.log('Network is offline - pausing connection attempts');
+
+    // Stop all reconnection attempts
+    this.stopReconnectAttempts();
+
+    // Stop health checks
+    this.stopHealthCheck();
+
+    // Update connection state if we were connected
+    if (this.isConnected) {
+      this.connectionStateSubject.next(ConnectionState.DISCONNECTED);
+    }
+
+    // Mark all subscriptions as inactive
+    this.markAllSubscriptionsInactive();
+
+    // Disconnect Centrifuge if connected
+    if (this.centrifuge && this.isConnected) {
+      console.log('Disconnecting Centrifuge due to network offline');
+      this.centrifuge.disconnect();
+    }
+  }
+
+  /**
+   * Handle network coming back online
+   */
+  private onNetworkBackOnline(): void {
+    console.log('Network is back online - attempting to reconnect');
+
+    const currentStatus = this.networkMonitor.getCurrentStatus();
+    console.log('Current network status:', currentStatus);
+
+    // Reset reconnect attempts
+    this.reconnectAttemptsSubject.next(0);
+
+    // Clear any pending reconnect attempts
+    this.stopReconnectAttempts();
+
+    // Attempt to reconnect if we have a Centrifuge instance
+    if (this.centrifuge && !this.isConnected) {
+      console.log('Initiating network-aware reconnection');
+
+      // Small delay to ensure network is stable
+      setTimeout(() => {
+        if (currentStatus.isOnline) {
+          this.forceReconnect();
+        } else {
+          console.log('Network went offline again before reconnection');
+        }
+      }, 500);
+    }
   }
 
   get connection(): Centrifuge {
     return this.centrifuge;
   }
 
-  /**
-   * Initialize Centrifuge with correct options
-   */
+  get connectionState(): ConnectionState {
+    return this.connectionStateSubject.value;
+  }
+
+  get subscriptionCount(): number {
+    return this.subscriptionCountSubject.value;
+  }
+
+  get reconnectAttempts(): number {
+    return this.reconnectAttemptsSubject.value;
+  }
+
+  get isConnected(): boolean {
+    return this.connectionState === ConnectionState.CONNECTED;
+  }
+
   public connect(url: string, token: string, getToken?: (ctx: any) => Promise<string>): void {
     this.disconnect();
 
@@ -72,14 +199,12 @@ export class CentrifugeService implements OnDestroy {
       timeout: 5000,
       maxServerPingDelay: 10000,
     };
+
     this.centrifuge = new Centrifuge(url, options);
     this.setupConnectionHandlers();
     this.centrifuge.connect();
   }
 
-  /**
-   * Create a recoverable by default subscription and track it
-   */
   public createRecoverableSubscription(
     channel: string,
     token?: string,
@@ -119,15 +244,11 @@ export class CentrifugeService implements OnDestroy {
 
     const subscription = this.centrifuge.newSubscription(channel, subscriptionOptions);
 
-    // Track the subscription
     this.trackSubscription(subscription, channel, token, options);
 
     return subscription;
   }
 
-  /**
-   * Create a basic subscription
-   */
   public createSubscription(
     channel: string,
     token?: string,
@@ -141,9 +262,6 @@ export class CentrifugeService implements OnDestroy {
     });
   }
 
-  /**
-   * Track a subscription
-   */
   private trackSubscription(
     subscription: CentrifugeSubscription,
     channel: string,
@@ -160,9 +278,8 @@ export class CentrifugeService implements OnDestroy {
     };
 
     this.activeSubscriptions.set(channel, subscriptionInfo);
-    this.subscriptionCount.set(this.activeSubscriptions.size);
+    this.subscriptionCountSubject.next(this.activeSubscriptions.size);
 
-    // Update last activity on publication
     subscription.on('publication', () => {
       const info = this.activeSubscriptions.get(channel);
       if (info) {
@@ -170,12 +287,10 @@ export class CentrifugeService implements OnDestroy {
       }
     });
 
-    // Handle subscription removal on unsubscribe
     subscription.on('unsubscribed', () => {
       this.removeSubscription(channel);
     });
 
-    // Handle subscription errors
     subscription.on('error', (err) => {
       console.error(`Subscription error for channel ${channel}:`, err);
       const info = this.activeSubscriptions.get(channel);
@@ -187,9 +302,6 @@ export class CentrifugeService implements OnDestroy {
     console.log(`Tracked subscription for channel: ${channel}, total: ${this.activeSubscriptions.size}`);
   }
 
-  /**
-   * Close and remove a specific subscription by channel
-   */
   public closeSubscription(channel: string): boolean {
     const subscriptionInfo = this.activeSubscriptions.get(channel);
 
@@ -199,30 +311,24 @@ export class CentrifugeService implements OnDestroy {
     }
 
     try {
-      // Remove and unsubscribe from the subscription
       subscriptionInfo.subscription.unsubscribe();
       this.centrifuge.removeSubscription(subscriptionInfo.subscription);
 
-      // Remove from tracking
       this.activeSubscriptions.delete(channel);
-      this.subscriptionCount.set(this.activeSubscriptions.size);
+      this.subscriptionCountSubject.next(this.activeSubscriptions.size);
 
       console.log(`Successfully closed subscription for channel: ${channel}`);
       return true;
     } catch (error) {
       console.error(`Error closing subscription for channel ${channel}:`, error);
 
-      // Force remove from tracking even if unsubscribe fails
       this.activeSubscriptions.delete(channel);
-      this.subscriptionCount.set(this.activeSubscriptions.size);
+      this.subscriptionCountSubject.next(this.activeSubscriptions.size);
 
       return false;
     }
   }
 
-  /**
-   * Close and remove multiple subscriptions
-   */
   public closeSubscriptions(channels: string[]): { success: string[], failed: string[] } {
     const success: string[] = [];
     const failed: string[] = [];
@@ -238,9 +344,6 @@ export class CentrifugeService implements OnDestroy {
     return { success, failed };
   }
 
-  /**
-   * Close all active subscriptions
-   */
   public closeAllSubscriptions(): { closed: number, errors: number } {
     const channels = Array.from(this.activeSubscriptions.keys());
     let closed = 0;
@@ -258,53 +361,34 @@ export class CentrifugeService implements OnDestroy {
     return { closed, errors };
   }
 
-  /**
-   * Remove a subscription from tracking without unsubscribing
-   * Useful when you want to manage subscription lifecycle externally
-   */
   public removeSubscription(channel: string): boolean {
     const existed = this.activeSubscriptions.delete(channel);
 
     if (existed) {
-      this.subscriptionCount.set(this.activeSubscriptions.size);
+      this.subscriptionCountSubject.next(this.activeSubscriptions.size);
       console.log(`Removed subscription tracking for channel: ${channel}`);
     }
 
     return existed;
   }
 
-  /**
-   * Get information about a specific subscription
-   */
   public getSubscriptionInfo(channel: string): SubscriptionInfo | null {
     return this.activeSubscriptions.get(channel) || null;
   }
 
-  /**
-   * Get all active subscriptions
-   */
   public getAllSubscriptions(): SubscriptionInfo[] {
     return Array.from(this.activeSubscriptions.values());
   }
 
-  /**
-   * Get subscription by channel
-   */
   public getSubscription(channel: string): CentrifugeSubscription | null {
     const info = this.activeSubscriptions.get(channel);
     return info?.subscription || null;
   }
 
-  /**
-   * Check if a subscription exists for a channel
-   */
   public hasSubscription(channel: string): boolean {
     return this.activeSubscriptions.has(channel);
   }
 
-  /**
-   * Check if a subscription is active (subscribed state)
-   */
   public isSubscriptionActive(channel: string): boolean {
     const info = this.activeSubscriptions.get(channel);
     if (!info) { return false; }
@@ -313,9 +397,6 @@ export class CentrifugeService implements OnDestroy {
     return state === 'subscribed' || state === 'subscribing';
   }
 
-  /**
-   * Resubscribe to a channel
-   */
   public resubscribe(channel: string): boolean {
     const info = this.activeSubscriptions.get(channel);
 
@@ -336,9 +417,6 @@ export class CentrifugeService implements OnDestroy {
     }
   }
 
-  /**
-   * Clean up inactive subscriptions (older than specified hours)
-   */
   public cleanupInactiveSubscriptions(maxAgeHours: number = 24): string[] {
     const now = new Date();
     const maxAgeMs = maxAgeHours * 60 * 60 * 1000;
@@ -347,13 +425,11 @@ export class CentrifugeService implements OnDestroy {
     for (const [channel, info] of this.activeSubscriptions.entries()) {
       const age = now.getTime() - info.createdAt.getTime();
 
-      // Close subscription if it's old AND hasn't been active recently
       if (age > maxAgeMs) {
         const lastActivityAge = info.lastActivity
           ? now.getTime() - info.lastActivity.getTime()
           : Infinity;
 
-        // If no activity for maxAgeHours or no activity at all
         if (lastActivityAge > maxAgeMs || !info.lastActivity) {
           if (this.closeSubscription(channel)) {
             cleanedUp.push(channel);
@@ -366,61 +442,37 @@ export class CentrifugeService implements OnDestroy {
     return cleanedUp;
   }
 
-  /**
-   * Set up connection event handlers
-   */
   private setupConnectionHandlers(): void {
     if (!this.centrifuge) { return; }
 
     this.centrifuge.on('connected', (ctx) => {
-      this.ngZone.run(() => {
-        console.log('WebSocket connected');
-        this.connectionState.set(ConnectionState.CONNECTED);
-        this.connectionState$.next(ConnectionState.CONNECTED);
-        this.reconnectAttempts.set(0);
-        this.stopReconnectAttempts();
-        this.startHealthCheck();
-
-        // Auto-resubscribe all tracked subscriptions when reconnected
-        this.autoResubscribeOnReconnect();
-      });
+      console.log('WebSocket connected');
+      this.connectionStateSubject.next(ConnectionState.CONNECTED);
+      this.reconnectAttemptsSubject.next(0);
+      this.stopReconnectAttempts();
+      this.startHealthCheck();
+      this.autoResubscribeOnReconnect();
     });
 
     this.centrifuge.on('disconnected', (ctx) => {
-      this.ngZone.run(() => {
-        console.log('WebSocket disconnected', ctx.reason);
-        this.connectionState.set(ConnectionState.DISCONNECTED);
-        this.connectionState$.next(ConnectionState.DISCONNECTED);
-        this.stopHealthCheck();
-
-        // Mark all subscriptions as inactive
-        this.markAllSubscriptionsInactive();
-
-        // Start reconnection attempts
-        this.scheduleReconnection();
-      });
+      console.log('WebSocket disconnected', ctx.reason);
+      this.connectionStateSubject.next(ConnectionState.DISCONNECTED);
+      this.stopHealthCheck();
+      this.markAllSubscriptionsInactive();
+      this.scheduleReconnection();
     });
 
     this.centrifuge.on('connecting', (ctx) => {
-      this.ngZone.run(() => {
-        console.log('WebSocket connecting...', ctx.reason);
-        this.connectionState.set(ConnectionState.CONNECTING);
-        this.connectionState$.next(ConnectionState.CONNECTING);
-      });
+      console.log('WebSocket connecting...', ctx.reason);
+      this.connectionStateSubject.next(ConnectionState.CONNECTING);
     });
 
     this.centrifuge.on('error', (ctx) => {
-      this.ngZone.run(() => {
-        console.error('WebSocket error:', ctx.error);
-        this.connectionState.set(ConnectionState.ERROR);
-        this.connectionState$.next(ConnectionState.ERROR);
-      });
+      console.error('WebSocket error:', ctx.error);
+      this.connectionStateSubject.next(ConnectionState.ERROR);
     });
   }
 
-  /**
-   * Auto-resubscribe all active subscriptions when connection is restored
-   */
   private autoResubscribeOnReconnect(): void {
     console.log('Auto-resubscribing active subscriptions...');
 
@@ -443,69 +495,55 @@ export class CentrifugeService implements OnDestroy {
     console.log(`Auto-resubscribed ${resubscribed} subscriptions, ${failed} failed`);
   }
 
-  /**
-   * Mark all subscriptions as inactive when disconnected
-   */
   private markAllSubscriptionsInactive(): void {
     for (const info of this.activeSubscriptions.values()) {
       info.isActive = false;
     }
   }
 
-  /**
-   * Schedule reconnection with exponential backoff
-   */
   private scheduleReconnection(): void {
     this.stopReconnectAttempts();
 
-    const attempts = this.reconnectAttempts();
-    if (attempts >= this.maxReconnectAttempts) {
+    const currentAttempts = this.reconnectAttempts;
+    if (currentAttempts >= this.maxReconnectAttempts) {
       console.error('Max reconnection attempts reached');
       return;
     }
 
     const delay = Math.min(
-      this.baseReconnectDelay * Math.pow(2, attempts),
+      this.baseReconnectDelay * Math.pow(2, currentAttempts),
       this.maxReconnectDelay
     );
 
-    console.log(`Reconnecting in ${delay}ms (attempt ${attempts + 1}/${this.maxReconnectAttempts})`);
+    console.log(`Reconnecting in ${delay}ms (attempt ${currentAttempts + 1}/${this.maxReconnectAttempts})`);
 
     this.reconnectTimeoutId = setTimeout(() => {
-      this.ngZone.run(() => {
-        this.reconnectAttempts.update(a => a + 1);
+      const newAttempts = currentAttempts + 1;
+      this.reconnectAttemptsSubject.next(newAttempts);
 
-        if (this.centrifuge && !this.isConnected()) {
-          console.log('Attempting reconnection...');
-          try {
-            this.centrifuge.connect();
-          } catch (error) {
-            console.error('Reconnection attempt failed:', error);
-            this.scheduleReconnection();
-          }
+      if (this.centrifuge && !this.isConnected) {
+        console.log('Attempting reconnection...');
+        try {
+          this.centrifuge.connect();
+        } catch (error) {
+          console.error('Reconnection attempt failed:', error);
+          this.scheduleReconnection();
         }
-      });
+      }
     }, delay);
   }
 
-  /**
-   * Start health check
-   */
   private startHealthCheck(): void {
     this.stopHealthCheck();
 
     this.healthCheckIntervalId = setInterval(() => {
-      if (this.centrifuge && this.isConnected()) {
+      if (this.centrifuge && this.isConnected) {
         console.log('Connection health check passed');
-        // Optional: Check subscription health
         this.checkSubscriptionHealth();
       }
     }, 30000);
   }
 
-  /**
-   * Check health of all tracked subscriptions
-   */
   private checkSubscriptionHealth(): void {
     let healthy = 0;
     let unhealthy = 0;
@@ -525,9 +563,6 @@ export class CentrifugeService implements OnDestroy {
     }
   }
 
-  /**
-   * Stop health check
-   */
   private stopHealthCheck(): void {
     if (this.healthCheckIntervalId) {
       clearInterval(this.healthCheckIntervalId);
@@ -535,9 +570,6 @@ export class CentrifugeService implements OnDestroy {
     }
   }
 
-  /**
-   * Stop reconnection attempts
-   */
   private stopReconnectAttempts(): void {
     if (this.reconnectTimeoutId) {
       clearTimeout(this.reconnectTimeoutId);
@@ -545,53 +577,20 @@ export class CentrifugeService implements OnDestroy {
     }
   }
 
-  /**
-   * Monitor network status
-   */
-  private setupConnectionMonitoring(): void {
-    window.addEventListener('online', () => {
-      this.ngZone.run(() => {
-        if (this.centrifuge && !this.isConnected()) {
-          console.log('Network online, attempting reconnection...');
-          this.reconnectAttempts.set(0);
-          this.centrifuge.connect();
-        }
-      });
-    });
-
-    window.addEventListener('offline', () => {
-      this.ngZone.run(() => {
-        console.log('Network offline');
-        this.connectionState.set(ConnectionState.DISCONNECTED);
-        this.connectionState$.next(ConnectionState.DISCONNECTED);
-        this.stopHealthCheck();
-      });
-    });
-  }
-
-  /**
-   * Get subscription state
-   */
   public getSubscriptionState(sub: CentrifugeSubscription): string {
     return sub.state;
   }
 
-  /**
-   * Check if subscription is recovering
-   */
   public isSubscriptionRecovering(sub: CentrifugeSubscription): boolean {
     return sub.state === 'subscribing' &&
       (sub as any).recovering === true;
   }
 
-  /**
-   * Force reconnection
-   */
   public forceReconnect(): void {
     if (this.centrifuge) {
       console.log('Manual reconnection triggered');
       this.stopReconnectAttempts();
-      this.reconnectAttempts.set(0);
+      this.reconnectAttemptsSubject.next(0);
       this.disconnect();
 
       setTimeout(() => {
@@ -602,17 +601,12 @@ export class CentrifugeService implements OnDestroy {
     }
   }
 
-  /**
-   * Disconnect and clean up all subscriptions
-   */
   public disconnect(): void {
     this.stopReconnectAttempts();
     this.stopHealthCheck();
 
-    // Close all subscriptions first
     this.closeAllSubscriptions();
 
-    // Disconnect Centrifuge
     if (this.centrifuge) {
       try {
         this.centrifuge.disconnect();
@@ -620,14 +614,5 @@ export class CentrifugeService implements OnDestroy {
         console.warn('Error during disconnect:', error);
       }
     }
-  }
-
-  /**
-   * Cleanup
-   */
-  ngOnDestroy(): void {
-    this.disconnect();
-    window.removeEventListener('online', () => {});
-    window.removeEventListener('offline', () => {});
   }
 }
