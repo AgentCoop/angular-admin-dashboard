@@ -97,7 +97,9 @@ export class SharedWorkerService implements OnDestroy {
 
   private setupWorker(): void {
     try {
-      this.worker = this.workerProvider.createWorker('pubsub-worker', {'foo': 1});
+      this.worker = this.workerProvider.createWorker('pubsub-worker', {
+        'url': 'ws://localhost:8005/connection/websocket?format=json'
+      });
 
       this.ngZone.runOutsideAngular(() => {
         const message$ = fromEvent<MessageEvent>(this.worker!.port, 'message');

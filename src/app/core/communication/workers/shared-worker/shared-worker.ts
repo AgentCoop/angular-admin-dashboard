@@ -10,13 +10,14 @@ import {Base64} from 'js-base64';
 
 declare const self: SharedWorkerGlobalScope;
 
-export class SharedWorker {
+export class SharedWorker<Config extends any> {
   private ports: Map<string, ExtendedMessagePort> = new Map(); // keyed by connectionId
   private readonly workerId: string;
   private sharedData: Map<string, any> = new Map();
   private heartbeatInterval?: number;
   private connectionCounter: number = 0;
-  private config: any;
+
+  protected config: Config;
 
   constructor() {
     this.workerId = uuid();
@@ -31,6 +32,7 @@ export class SharedWorker {
     // Handle global errors
     self.onerror = this.handleError.bind(this);
 
+    // Initialize worker configuration
     const { config } = this.decodeUrlParams();
 
     this.config = config;

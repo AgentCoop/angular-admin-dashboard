@@ -20,5 +20,9 @@
   },
   "usage_stats": {
     "disabled": true
+  },
+  "client": {
+    "allow_anonymous_connect_without_token": true,
+    "insecure": true
   }
 }

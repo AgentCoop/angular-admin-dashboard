@@ -4,7 +4,7 @@
 # Variables
 PROJECT_NAME = angular-military-admin
 DOCKER_IMAGE = $(PROJECT_NAME):latest
-DOCKER_CONTAINER = angular-admin-dashboard
+DOCKER_CONTAINER = angular-desktop-ui-web
 DEV_PORT = 4200
 PROD_PORT = 8080
 CONTAINER_WORKDIR = /app

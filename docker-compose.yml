@@ -9,8 +9,9 @@ services:
       - "8006:8001"  # Admin/internal endpoint (optional)
     environment:
       CENTRIFUGO_CLIENT_TOKEN_HMAC_SECRET_KEY: "secretkey"
-      CENTRIFUGO_CLIENT_ALLOWED_ORIGINS: "http://localhost:*"
+      CENTRIFUGO_CLIENT_ALLOWED_ORIGINS: "*"
       CENTRIFUGO_HTTP_API_KEY: "apikey"
+      CENTRIFUGO_LOG_LEVEL: "debug"
     volumes:
       - ./docker/centrifugo:/centrifugo
     command:

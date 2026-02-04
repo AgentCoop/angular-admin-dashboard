@@ -7,7 +7,13 @@ import { SharedWorker } from '../shared-worker';
 //import { WorkerMessageType, WorkerMessageDirection, PubSubPublishMessage } from './shared-worker-base';
 import { CentrifugeService } from '../../../transport/centrifuge';
 
-export class PubSubSharedWorker extends SharedWorker {
+export interface Config {
+  url: string;
+  token?: string;
+  getToken?: (ctx: any) => Promise<string>
+}
+
+export class PubSubSharedWorker extends SharedWorker<Config> {
   private centrifugeService: CentrifugeService | null = null;
   private centrifugeConfig: { url: string; token?: string; getToken?: (ctx: any) => Promise<string> } | null = null;
   private channelSubscriptions: Map<string, any> = new Map(); // Centrifuge subscriptions by channel
@@ -15,31 +21,22 @@ export class PubSubSharedWorker extends SharedWorker {
 
   constructor() {
     super();
-    console.log('[PubSubSharedWorker] Initialized');
-  }
 
-  // Configure Centrifuge
-  public configureCentrifuge(config: {
-    url: string;
-    token?: string;
-    getToken?: (ctx: any) => Promise<string>
-  }): void {
-    this.centrifugeConfig = config;
-    console.log('[PubSubSharedWorker] Centrifuge configured');
+    this.initializeCentrifuge();
+    console.log('[PubSubSharedWorker] Initialized, centrifuge config: %o', this.config);
   }
 
   // Initialize Centrifuge connection
-  private async initializeCentrifuge(): Promise<void> {
-    if (!this.centrifugeConfig || this.centrifugeService) {
+  private initializeCentrifuge(): void {
+    if (!this.config || this.centrifugeService) {
       return;
     }
 
     try {
       this.centrifugeService = new CentrifugeService();
       this.centrifugeService.connect(
-        this.centrifugeConfig.url,
-        this.centrifugeConfig.token || '',
-        this.centrifugeConfig.getToken
+        this.config.url,
+        this.config.token || '',
       );
 
       // Listen to connection state
