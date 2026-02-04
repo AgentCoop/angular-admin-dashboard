@@ -9,15 +9,12 @@ import {
   BroadcastOptions,
   ConnectionStatus,
   OutgoingMessage,
-  RegisterHookMessage,
   TabRegisterMessage,
   TabUnregisterMessage,
-  UnregisterHookMessage,
   WorkerMessage,
   WorkerMessageDirection,
   WorkerMessageType
 } from './types';
-import {ExecutionStrategy, HookHandler, HookType,} from '@core/communication/workers/shared-worker/hooks/types';
 
 @Injectable({ providedIn: 'root' })
 export class SharedWorkerService implements OnDestroy {
@@ -33,7 +30,6 @@ export class SharedWorkerService implements OnDestroy {
   private reconnectAttempts = 0;
   private readonly MAX_RECONNECT_ATTEMPTS = 5;
   private heartbeatSubscription?: Subscription;
-  private registeredHookCallbacks = new Map<string, HookHandler>();
 
   // Cache for lazy initialization
   private _messages$: Observable<WorkerMessage> | null = null;
@@ -101,7 +97,7 @@ export class SharedWorkerService implements OnDestroy {
 
   private setupWorker(): void {
     try {
-      this.worker = this.workerProvider.createWorker();
+      this.worker = this.workerProvider.createWorker('pubsub-worker', {'foo': 1});
 
       this.ngZone.runOutsideAngular(() => {
         const message$ = fromEvent<MessageEvent>(this.worker!.port, 'message');
@@ -297,10 +293,6 @@ export class SharedWorkerService implements OnDestroy {
       case WorkerMessageType.PING:
         break;
 
-      case WorkerMessageType.EXECUTE_HOOK:
-        this.handleHookExecution(message);
-        break;
-
       case WorkerMessageType.PONG:
         // Update latency
         const latency = Date.now() - message.timestamp;
@@ -318,48 +310,6 @@ export class SharedWorkerService implements OnDestroy {
 
       default:
         this.messageSubject.next(message);
-    }
-  }
-
-  private async handleHookExecution(msg: any): Promise<void> {
-    const { hookId, hookConfig, data, correlationId } = msg;
-
-    const handler = this.registeredHookCallbacks.get(hookId);
-    if (!handler) {
-      // Respond with error
-      this.postMessage({
-        type: WorkerMessageType.HOOK_EXECUTION_RESULT,
-        correlationId,
-        result: {
-          success: false,
-          shouldContinue: false,
-          error: `Hook ${hookId} not found`
-        },
-        timestamp: Date.now(),
-        direction: WorkerMessageDirection.TO_WORKER
-      });
-      return;
-    }
-
-    try {
-      const result = await handler(data);
-
-      this.postMessage({
-        type: WorkerMessageType.HOOK_EXECUTION_RESULT,
-        result,
-      });
-    } catch (error) {
-      this.postMessage({
-        type: WorkerMessageType.HOOK_EXECUTION_RESULT,
-        correlationId,
-        result: {
-          success: false,
-          shouldContinue: false,
-          error: error instanceof Error ? error.message : 'Unknown error'
-        },
-        timestamp: Date.now(),
-        direction: WorkerMessageDirection.TO_WORKER
-      });
     }
   }
 
@@ -384,7 +334,7 @@ export class SharedWorkerService implements OnDestroy {
       console.log(`Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts})`);
 
       setTimeout(() => {
-        this.setupWorker();
+        //this.setupWorker();
       }, delay);
     } else {
       console.error('Max reconnection attempts reached');
@@ -396,7 +346,7 @@ export class SharedWorkerService implements OnDestroy {
       setTimeout(() => {
         if (!this.connectionSubject.value.isConnected) {
           console.log('Attempting to reconnect to SharedWorker...');
-          this.setupWorker();
+          //this.setupWorker();
         }
       }, 5000);
     }
@@ -452,43 +402,6 @@ export class SharedWorkerService implements OnDestroy {
     });
   }
 
-  public registerHook(
-    hookType: HookType,
-    handler: HookHandler,
-    strategy: ExecutionStrategy = ExecutionStrategy.SINGLE_RANDOM,
-    options?: { }
-  ): string {
-    const hookId = uuid();
-
-    const registerHookMessage = {
-      type: WorkerMessageType.REGISTER_HOOK,
-      hookId,
-      descriptor: {
-        type: hookType,
-        strategy,
-      },
-    } as RegisterHookMessage;
-
-    // Store the handler locally
-    this.registeredHookCallbacks.set(hookId, handler);
-
-    // Register with shared worker
-    this.postMessage(registerHookMessage);
-
-    return hookId;
-  }
-
-  public unregisterHook(hookId: string): void {
-    const m = {
-      type: WorkerMessageType.UNREGISTER_HOOK,
-      hookId,
-    } as UnregisterHookMessage;
-
-    this.postMessage(m);
-
-    this.registeredHookCallbacks.delete(hookId);
-  }
-
   public syncData<T>(key: string, value: T): void {
     // this.postMessage({
     //   type: WorkerMessageType.SYNC_DATA,
@@ -515,11 +428,11 @@ export class SharedWorkerService implements OnDestroy {
 
   public reconnect(): void {
     if (this.worker) {
-      this.workerProvider.destroyWorker();
+      //this.workerProvider.destroyWorker();
       this.worker = null;
     }
     this.reconnectAttempts = 0;
-    this.setupWorker();
+    //this.setupWorker();
   }
 
   ngOnDestroy(): void {
@@ -539,7 +452,7 @@ export class SharedWorkerService implements OnDestroy {
       this.heartbeatSubscription.unsubscribe();
     }
 
-    this.workerProvider.destroyWorker();
+    //this.workerProvider.destroyWorker();
     this.tabCount$.complete();
     this.connectionSubject.complete();
     this.messageSubject.complete();

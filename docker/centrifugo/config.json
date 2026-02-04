@@ -1,0 +1,24 @@
+{
+  "http_server" : {
+    "port": "8000"
+  },
+  "proxies": [ ],
+  "channel": {
+    "without_namespace": {
+      "presence": true,
+      "history_size": 10,
+      "history_ttl": "300s",
+      "force_recovery": true,
+      "allow_subscribe_for_anonymous": true,
+      "allow_subscribe_for_client": true,
+      "allow_presence_for_anonymous": true,
+      "allow_presence_for_subscriber": true,
+      "allow_history_for_anonymous": true,
+      "allow_history_for_subscriber": true
+    },
+    "namespaces": []
+  },
+  "usage_stats": {
+    "disabled": true
+  }
+}

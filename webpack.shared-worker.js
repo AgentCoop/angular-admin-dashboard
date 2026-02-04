@@ -15,14 +15,15 @@ module.exports = {
   mode: isProduction ? 'production' : 'development',
   target: 'webworker', // Important for shared-worker context
   entry: {
-    'shared-worker': path.join(projectRoot, 'src/app/core/communication/workers/shared-worker/shared-worker.ts'),
+    'pubsub-worker': path.join(projectRoot, 'src/app/core/communication/workers/shared-worker/pubsub/pubsub-worker.ts'),
   },
   output: {
-    filename: 'shared-worker.js',
+    // Use [name] to output multiple files
+    filename: '[name].js',
     path: path.resolve(__dirname, 'dist/js'),
     publicPath: '/assets/js/',
     globalObject: 'self', // Required for workers
-    clean: true // Clean output directory before build
+    clean: true
   },
   resolve: {
     extensions: ['.ts', '.js', '.json'],

@@ -19,7 +19,7 @@ export class NetworkMonitorFactory {
   /**
    * Auto-detect context and create appropriate monitor
    */
-  static autoCreate(externalStatus$?: Observable<any>): NetworkMonitor {
+  static autoCreate(): NetworkMonitor {
     // Check if we're in a window context
     if (typeof window !== 'undefined') {
       return new WindowNetworkMonitor();

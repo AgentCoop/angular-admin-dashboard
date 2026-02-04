@@ -31,9 +31,7 @@
     "useDefineForClassFields": false
   },
   "include": [
-    "src/app/core/communication/workers/shared-worker/hooks/*.ts",
-    "src/app/core/communication/workers/shared-worker/shared-worker.ts",
-    "src/app/core/communication/workers/shared-worker/types.ts",
+    "src/app/core/communication/workers/shared-worker/pubsub/*.ts",
   ],
   "exclude": [
     "node_modules",

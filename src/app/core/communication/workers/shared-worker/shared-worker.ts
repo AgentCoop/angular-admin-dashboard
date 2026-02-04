@@ -1,34 +1,26 @@
-// shared-sharedWorker-shared-sharedWorker.ts
+// shared-worker.ts
 /// <reference lib="webworker" />
 
-import { HookManager } from './hooks/hook-manager';
 import {
   SyncDataMessage, WorkerMessage, WorkerMessageDirection, WorkerMessageType, ExtendedMessagePort,
-  RegisterHookMessage, TabRegisterMessage, BroadcastMessage
+  TabRegisterMessage, BroadcastMessage
 } from './types';
 import { v4 as uuid } from 'uuid';
-import {HookType} from './hooks/types';
+import {Base64} from 'js-base64';
 
 declare const self: SharedWorkerGlobalScope;
 
-class SharedWorkerInstance {
+export class SharedWorker {
   private ports: Map<string, ExtendedMessagePort> = new Map(); // keyed by connectionId
   private readonly workerId: string;
   private sharedData: Map<string, any> = new Map();
-  private hookManager: HookManager;
   private heartbeatInterval?: number;
   private connectionCounter: number = 0;
+  private config: any;
 
   constructor() {
     this.workerId = uuid();
-    console.log('SHARED WORKER: Initialized with ID: %s, location: %s', this.workerId, self.location.href);
-
-    this.hookManager = new HookManager({
-      workerId: this.workerId
-    });
-
-    // Set up port finder for callback support
-    this.hookManager.setPortFinder(this.findPortByTabId.bind(this));
+    console.log('SHARED WORKER: Initialized with ID: %s, location: %s', this.workerId, self.location.href)
 
     // Set up connection handler
     self.onconnect = this.handleConnection.bind(this);
@@ -38,6 +30,38 @@ class SharedWorkerInstance {
 
     // Handle global errors
     self.onerror = this.handleError.bind(this);
+
+    const { config } = this.decodeUrlParams();
+
+    this.config = config;
+  }
+
+  /**
+   * Helper to decode params from the URL in worker context
+   */
+  private decodeUrlParams(): { config: any } {
+    if (typeof self === 'undefined') {
+      return { config: null };
+    }
+
+    try {
+      const url = new URL(self.location.href);
+      const configParam = url.searchParams.get('config');
+
+      if (!configParam) {
+        return { config: null };
+      }
+
+      // Decode URL-safe base64
+      const json = Base64.decode(configParam);
+      const config = JSON.parse(json);
+
+      return { config };
+
+    } catch (error) {
+      console.warn('Failed to decode config from URL:', error);
+      return { config: null };
+    }
   }
 
   private findPortByTabId(tabId: string): MessagePort | undefined {
@@ -89,14 +113,6 @@ class SharedWorkerInstance {
         this.handleTabUnregister(connectionId);
         break;
 
-      case WorkerMessageType.REGISTER_HOOK:
-        this.handleRegisterHook(data, sourcePort);
-        break;
-
-      case WorkerMessageType.HOOK_EXECUTION_RESULT:
-        console.log('hook execution result');
-        break;
-
       case WorkerMessageType.BROADCAST:
         this.broadcastMessage(data, sourcePort);
         break;
@@ -123,16 +139,6 @@ class SharedWorkerInstance {
     }
   }
 
-  /**
-   * Handle callback registration
-   */
-  private handleRegisterHook(message: RegisterHookMessage, sourcePort: ExtendedMessagePort): void {
-    const { hookId, descriptor } = message;
-    const tabId = sourcePort.tabId!;
-
-    this.hookManager.registerHook(hookId, descriptor, tabId);
-  }
-
   private handleTabRegister(data: TabRegisterMessage, port: ExtendedMessagePort, connectionId: string): void {
     const { tabId } = data;
 
@@ -150,9 +156,6 @@ class SharedWorkerInstance {
     this.ports.set(connectionId, port);
 
     console.log(`[SharedWorker] Tab registered: ${tabId}. Total tabs: ${this.getActiveTabsCount()}`);
-
-    this.hookManager.addPort(tabId, port);
-
     // Notify all tabs about the new count
     this.broadcastTabCount();
 
@@ -167,7 +170,6 @@ class SharedWorkerInstance {
       this.ports.delete(connectionId);
       console.log(`[SharedWorker] Tab unregistered: ${connectionId}. Remaining: ${this.getActiveTabsCount()}`);
 
-      this.hookManager.removePort(tabId);
       this.broadcastTabCount();
     }
   }
@@ -426,13 +428,10 @@ class SharedWorkerInstance {
     }
   }
 
-  private async broadcastMessage(
+  private broadcastMessage(
     message: WorkerMessage,
     sourcePort: ExtendedMessagePort,
-  ): Promise<void> {
-    // Execute BEFORE_BROADCAST hook
-    this.hookManager.executeHooks(HookType.BEFORE_BROADCAST, message);
-
+  ): void {
     this.ports.forEach((port, tabId) => {
       if (port === sourcePort) {
         return;
@@ -452,9 +451,6 @@ class SharedWorkerInstance {
         console.warn(`[SharedWorker] Failed to broadcast to tab ${tabId}:`, error);
       }
     });
-
-    // Execute AFTER_BROADCAST hook
-    this.hookManager.executeHooks(HookType.AFTER_BROADCAST, message);
   }
 
   private broadcastToOthers(sourcePort: ExtendedMessagePort, message: WorkerMessage): void {
@@ -638,12 +634,4 @@ class SharedWorkerInstance {
 
     console.log('[SharedWorker] Cleaned up');
   }
-}
-
-// Create and export the SharedWorkerInstance instance
-const sharedWorker = new SharedWorkerInstance();
-
-// Export for potential debugging/testing
-if (typeof self !== 'undefined') {
-  (self as any).__sharedWorker = sharedWorker;
 }

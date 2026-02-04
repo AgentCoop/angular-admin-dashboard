@@ -1,8 +1,6 @@
 // types.ts
 
 
-import {HookDescriptor, HookResult, HookType} from '@core/communication/workers/shared-worker/hooks/types';
-
 export interface ExtendedMessagePort extends MessagePort {
   tabId: string;
   lastHeartbeat?: number;
@@ -11,13 +9,6 @@ export interface ExtendedMessagePort extends MessagePort {
 }
 
 export enum WorkerMessageType {
-  // Hook management
-  REGISTER_HOOK = 'REGISTER_HOOK',
-  UNREGISTER_HOOK = 'UNREGISTER_HOOK',
-  EXECUTE_HOOK = 'EXECUTE_HOOK',
-  HOOK_EXECUTION_RESULT = 'HOOK_EXECUTION_RESULT',
-  HOOK_ASSIGNMENT = 'HOOK_ASSIGNMENT',
-  LEADER_CHANGE = 'LEADER_CHANGE',
 
   // Connection Management
   WORKER_CONNECTED = 'WORKER_CONNECTED',
@@ -171,26 +162,6 @@ export interface ErrorMessage extends BaseWorkerMessage {
   originalMessage?: BaseWorkerMessage;
 }
 
-export interface RegisterHookMessage extends BaseWorkerMessage {
-  type: WorkerMessageType.REGISTER_HOOK;
-  hookId: string,
-  descriptor: HookDescriptor,
-}
-
-export interface UnregisterHookMessage extends BaseWorkerMessage {
-  type: WorkerMessageType.UNREGISTER_HOOK;
-  hookId: string;
-}
-
-export interface ExecuteHookMessage extends BaseWorkerMessage {
-  type: WorkerMessageType.EXECUTE_HOOK;
-}
-
-export interface ExecuteHookResultMessage extends BaseWorkerMessage {
-  type: WorkerMessageType.HOOK_EXECUTION_RESULT;
-  result: HookResult
-}
-
 // Union type for all messages
 export type WorkerMessage =
   | ConnectionMessage
@@ -206,10 +177,6 @@ export type WorkerMessage =
   | PingMessage
   | PongMessage
   | ErrorMessage
-  | RegisterHookMessage
-  | UnregisterHookMessage
-  | ExecuteHookMessage
-  | ExecuteHookResultMessage;
 ;
 
 export type OutgoingMessage = Omit<WorkerMessage, 'direction' | 'timestamp' | 'tabId'>;
