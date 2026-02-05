@@ -4,8 +4,8 @@
  */
 
 // Export services
-export { SharedWorkerService } from './shared-worker.service';
-export { SharedWorkerProvider } from './shared-worker.provider';
+export { WorkerService } from './worker.service';
+export { WorkerProviderService } from './worker-provider.service';
 
 // Export types
 export * from './types';

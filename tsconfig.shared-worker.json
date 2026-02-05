@@ -31,7 +31,7 @@
     "useDefineForClassFields": false
   },
   "include": [
-    "src/app/core/communication/workers/shared-worker/pubsub/*.ts",
+    "src/app/core/communication/worker/pubsub/*.ts"
   ],
   "exclude": [
     "node_modules",

@@ -1,4 +1,4 @@
-import {BaseWorkerState} from '@core/communication/workers/shared-worker';
+import {BaseWorkerState} from '@core/communication/worker';
 
 
 export const PubSubMessageTypes = {

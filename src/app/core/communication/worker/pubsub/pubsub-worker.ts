@@ -2,10 +2,10 @@
 // pubsub.ts
 /// <reference lib="webworker" />
 
-import { SharedWorker } from '../shared-worker';
-import { CentrifugeService } from '../../../transport/centrifuge';
-import {BaseWorkerState, ExtendedMessagePort, Message} from '../types';
-import {PubSubState} from '@core/communication/workers/shared-worker/pubsub/types';
+import {WorkerBase} from '../worker-base';
+import {CentrifugeService} from '../../transport/centrifuge';
+import {ExtendedMessagePort, Message} from '../types';
+import {PubSubState} from './types';
 
 export interface Config {
   url: string;
@@ -13,7 +13,7 @@ export interface Config {
   getToken?: (ctx: any) => Promise<string>
 }
 
-export class PubSubSharedWorker extends SharedWorker<Config, PubSubState> {
+export class PubSubSharedWorker extends WorkerBase<Config, PubSubState> {
   private centrifugeService: CentrifugeService | null = null;
   private channelSubscriptions: Map<string, any> = new Map(); // Centrifuge subscriptions by channel
   private tabChannels: Map<string, Set<string>> = new Map(); // tabId -> Set<channels>

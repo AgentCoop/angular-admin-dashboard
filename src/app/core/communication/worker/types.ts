@@ -19,18 +19,15 @@ export interface BroadcastOptions {
 }
 
 export const BaseMessageTypes = {
-  // Connection Management
+  //
   WORKER_CONNECTED: 'WORKER_CONNECTED',
   WORKER_STATE: 'WORKER_STATE',
+
   TAB_REGISTER: 'TAB_REGISTER',
   TAB_UNREGISTER: 'TAB_UNREGISTER',
   TAB_DATA: 'TAB_DATA',
   TAB_HEARTBEAT: 'TAB_HEARTBEAT',
   TAB_VISIBILITY: 'TAB_VISIBILITY',
-
-  // Communication
-  BROADCAST: 'BROADCAST',
-
 
   // System
   PING: 'PING',
@@ -80,12 +77,6 @@ export interface BaseMessagePayloads {
     tabId: string;
     timestamp: number;
     memoryUsage?: number;
-  };
-
-  [BaseMessageTypes.BROADCAST]: {
-    data: any;
-    channel?: string;
-    exclude?: string[];
   };
 
   [BaseMessageTypes.PING]: {

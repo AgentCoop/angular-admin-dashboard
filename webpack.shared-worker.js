@@ -10,12 +10,13 @@ const analyzeBundle = process.env.ANALYZE === 'true';
 
 // Get absolute path to project root
 const projectRoot = path.resolve(__dirname);
+const workerRoot = path.join(projectRoot, 'src/app/core/communication/worker');
 
 module.exports = {
   mode: isProduction ? 'production' : 'development',
   target: 'webworker', // Important for shared-worker context
   entry: {
-    'pubsub-worker': path.join(projectRoot, 'src/app/core/communication/workers/shared-worker/pubsub/pubsub-worker.ts'),
+    'pubsub-worker': path.join(workerRoot, 'pubsub/pubsub-worker.ts'),
   },
   output: {
     // Use [name] to output multiple files

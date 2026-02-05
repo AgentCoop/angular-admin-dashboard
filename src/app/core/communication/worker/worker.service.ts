@@ -4,7 +4,7 @@ import {isPlatformBrowser} from '@angular/common';
 import {v4 as uuid} from 'uuid';
 import {BehaviorSubject, EMPTY, fromEvent, merge, Observable, Subject, Subscription, timer} from 'rxjs';
 import {catchError, debounceTime, distinctUntilChanged, filter, map, share, takeUntil} from 'rxjs/operators';
-import {SharedWorkerProvider} from './shared-worker.provider';
+import {WorkerProviderService} from './worker-provider.service';
 import {
   BaseMessageTypes,
   Message,
@@ -13,7 +13,7 @@ import {
 } from './types';
 
 @Injectable({ providedIn: 'root' })
-export class SharedWorkerService implements OnDestroy {
+export class WorkerService implements OnDestroy {
   private worker: SharedWorker | null = null;
   private destroy$ = new Subject<void>();
   private messageSubject = new Subject<Message>();
@@ -37,7 +37,7 @@ export class SharedWorkerService implements OnDestroy {
   public readonly connection$: Observable<ConnectionStatus>;
 
   constructor(
-    private workerProvider: SharedWorkerProvider,
+    private workerProvider: WorkerProviderService,
     private ngZone: NgZone,
     @Inject(PLATFORM_ID) private platformId: any
   ) {
@@ -189,28 +189,6 @@ export class SharedWorkerService implements OnDestroy {
       this.reconnectAttempts = 0;
       //this.updateConnectionStatus(true, msg?.workerId);
     });
-
-    // Handle tab count updates
-    // this.messages$.pipe(
-    //   filter(msg => msg.type === 'TAB_COUNT_UPDATE'),
-    //   takeUntil(this.destroy$)
-    // ).subscribe((msg: any) => {
-    //   this.tabCount$.next(msg.count);
-    //   this.updateConnectionStatus(
-    //     this.connectionSubject.value.isConnected,
-    //     this.connectionSubject.value.workerId,
-    //     msg.count
-    //   );
-    // });
-
-    // Handle broadcast messages
-    // this.messages$.pipe(
-    //   filter(msg => msg.type === WorkerMessageType.BROADCAST),
-    //   takeUntil(this.destroy$)
-    // ).subscribe((msg: any) => {
-    //   // Emit to application
-    //   this.messageSubject.next(msg);
-    // });
   }
 
   private startHeartbeat(): void {
@@ -247,12 +225,6 @@ export class SharedWorkerService implements OnDestroy {
     // Use both beforeunload and pagehide for better coverage
     window.addEventListener('beforeunload', handleBeforeUnload);
     window.addEventListener('pagehide', handleBeforeUnload);
-
-    // Cleanup - though this won't really fire since tab is closing
-    this.destroy$.subscribe(() => {
-      window.removeEventListener('beforeunload', handleBeforeUnload);
-      window.removeEventListener('pagehide', handleBeforeUnload);
-    });
   }
 
   private unregisterTab(): void {
@@ -366,17 +338,7 @@ export class SharedWorkerService implements OnDestroy {
     this.connectionSubject.next(newStatus);
   }
 
-  // ============ Public API ============
-
-  public sendData(key: string, value: any, options: { broadcast?: boolean } = {}) {
-    const m = MessageFactory.create(BaseMessageTypes.TAB_DATA, {
-      key, value
-    });
-
-    this.postMessage(m, options);
-  }
-
-  public postMessage(m: Message, options: { broadcast?: boolean } = {}): void {
+  private postMessage(m: Message, options: { broadcast?: boolean } = {}): void {
     if (!this.worker || !this.connectionSubject.value.isConnected) {
       console.warn('SharedWorker not connected, message queued:', m.type);
       // TODO: Implement message queue for reconnection
@@ -403,16 +365,14 @@ export class SharedWorkerService implements OnDestroy {
     }
   }
 
-  public broadcast(data: any, options: BroadcastOptions = {}): void {
-    const broadcastMessage = MessageFactory.create(
-      BaseMessageTypes.BROADCAST,
-      {
-        ...options,
-        data: data,
-      }
-    );
+  // ============ Public API ============
 
-    this.postMessage(broadcastMessage);
+  public sendData(key: string, value: any, options: { broadcast?: boolean } = {}) {
+    const m = MessageFactory.create(BaseMessageTypes.TAB_DATA, {
+      key, value
+    });
+
+    this.postMessage(m, options);
   }
 
   public on<T>(messageType: string): Observable<T> {
@@ -458,10 +418,7 @@ export class SharedWorkerService implements OnDestroy {
 
     // Unregister tab
     if (this.connectionSubject.value.isConnected) {
-      // this.postMessage({
-      //   type: WorkerMessageType.TAB_UNREGISTER,
-      //   tabId: this.tabId
-      // });
+      this.unregisterTab();
     }
 
     // Cleanup

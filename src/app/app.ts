@@ -10,10 +10,10 @@ import {ThemeService} from './core/services/theme.service';
 import {
   Message,
   BaseMessageTypes,
-  SharedWorkerService,
+  WorkerService,
   BaseWorkerState
-} from '@core/communication/workers/shared-worker'; // ✅ ADDED
-import {AllMessageTypes} from '@core/communication/workers/shared-worker'; // ✅ ADDED
+} from '@core/communication/worker'; // ✅ ADDED
+import {AllMessageTypes} from '@core/communication/worker'; // ✅ ADDED
 import {DraggableDirective, DragPosition} from '@core/drag-drop';
 
 interface ColoredSquare {
@@ -86,7 +86,7 @@ export class App implements OnInit, AfterViewInit, OnDestroy {
   private state = inject(StateService);
   private authService = inject(AuthService);
   private themeService = inject(ThemeService);
-  private workerService = inject(SharedWorkerService); // ✅ ADDED
+  private workerService = inject(WorkerService); // ✅ ADDED
 
   // View References
   @ViewChild('draggableArea', { static: false }) draggableAreaRef!: ElementRef<HTMLDivElement>;
@@ -298,7 +298,7 @@ export class App implements OnInit, AfterViewInit, OnDestroy {
         break;
 
       case BaseMessageTypes.WORKER_STATE:
-        const state = m.payload as BaseWorkerState;
+        const state = m.payload.state as BaseWorkerState;
         this.connectedTabs.set(state.tabsConnected);
         this.addSystemMessage(1, `🔗 ${state.tabsConnected} tab(s) connected`);
         break;
@@ -438,18 +438,6 @@ export class App implements OnInit, AfterViewInit, OnDestroy {
         if (window.id === windowId) {
           const newState = !window.isMinimized;
 
-          // Broadcast state change
-          if (this.workerConnected()) {
-            this.workerService.broadcast({
-              type: 'CHAT_WINDOW_SYNC',
-              payload: {
-                action: 'window_minimized',
-                windowId,
-                isMinimized: newState
-              }
-            });
-          }
-
           // Clear unread when opening
           const unreadCount = newState ? window.unreadCount : 0;
 
@@ -468,32 +456,6 @@ export class App implements OnInit, AfterViewInit, OnDestroy {
   closeChatWindow(windowId: number): void {
     this.chatWindows.update(windows => windows.filter(w => w.id !== windowId));
     this.addChatLog(`Closed window ${windowId}`, 0);
-  }
-
-  // Drag chat window
-  onChatWindowDrag(windowId: number, position: DragPosition): void {
-    this.chatWindows.update(windows =>
-      windows.map(window => {
-        if (window.id === windowId) {
-          const newPosition = { x: position.absoluteX, y: position.absoluteY };
-
-          // Sync position to other tabs
-          if (this.workerConnected()) {
-            this.workerService.broadcast({
-              type: 'CHAT_WINDOW_SYNC',
-              payload: {
-                action: 'window_moved',
-                windowId,
-                position: newPosition
-              }
-            });
-          }
-
-          return { ...window, position: newPosition };
-        }
-        return window;
-      })
-    );
   }
 
   // Save chat window positions
@@ -567,14 +529,6 @@ export class App implements OnInit, AfterViewInit, OnDestroy {
     return window?.title || `Window ${windowId}`;
   }
 
-  saveSquarePositions(): void {
-    const positions = this.squares().map(s => ({
-      id: s.id,
-      position: s.position
-    }));
-    localStorage.setItem('squarePositions', JSON.stringify(positions));
-  }
-
   loadSquarePositions(): void {
     const saved = localStorage.getItem('squarePositions');
     if (saved) {
@@ -592,36 +546,6 @@ export class App implements OnInit, AfterViewInit, OnDestroy {
         console.warn('Failed to load square positions:', e);
       }
     }
-  }
-
-  // =====================
-  // UTILITY METHODS
-  // =====================
-
-  private getSquareFromElement(element: HTMLElement): ColoredSquare | null {
-    // Extract square data from the draggable element
-    const idAttr = element.getAttribute('data-square-id');
-    if (!idAttr) return null;
-
-    const id = parseInt(idAttr);
-    const name = element.getAttribute('data-square-name') || '';
-    const color = element.style.backgroundColor || '#ccc';
-
-    const square = this.squares().find(s => s.id === id);
-    return square || null;
-  }
-
-  private addLog(log: DropzoneLog): void {
-    this.dropzoneLogs.update(logs => {
-      const newLogs = [log, ...logs];
-      // Keep only last 20 logs
-      return newLogs.slice(0, 20);
-    });
-  }
-
-  private highlightZone(zone: string, highlight: boolean): void {
-    // Implementation depends on your styling approach
-    console.log(`${zone} ${highlight ? 'highlighted' : 'unhighlighted'}`);
   }
 
   // =====================
@@ -655,16 +579,16 @@ export class App implements OnInit, AfterViewInit, OnDestroy {
   // ✅ ADDED: Test cross-tab message
   testCrossTabMessage(): void {
     if (this.workerConnected()) {
-      this.workerService.broadcast({
-        type: 'CHAT_MESSAGE',
-        payload: {
+      this.workerService.sendData(
+        'CHAT_MESSAGE',
+        {
           windowId: 1,
           text: `Test message from Tab ${this.currentTabId().substring(0, 8)}`,
           sender: 'System',
           tabId: this.currentTabId(),
           timestamp: Date.now()
         }
-      });
+      );
 
       this.addSystemMessage(1, 'Test message sent to all tabs');
     } else {

@@ -2,7 +2,7 @@
 /// <reference lib="webworker" />
 
 import {
-  WorkerMessageDirection, ExtendedMessagePort,
+  ExtendedMessagePort,
   BaseMessageTypes, Message, MessageFactory, BaseWorkerState
 } from './types';
 import { v4 as uuid } from 'uuid';
@@ -10,10 +10,9 @@ import {Base64} from 'js-base64';
 
 declare const self: SharedWorkerGlobalScope;
 
-export abstract class SharedWorker<C extends any, S extends BaseWorkerState = BaseWorkerState> {
+export abstract class WorkerBase<C extends any, S extends BaseWorkerState = BaseWorkerState> {
   private ports: Map<string, ExtendedMessagePort> = new Map(); // keyed by connectionId
   private readonly workerId: string;
-  private sharedData: Map<string, any> = new Map();
   private heartbeatInterval?: number;
 
   private _state: S;
@@ -129,10 +128,6 @@ export abstract class SharedWorker<C extends any, S extends BaseWorkerState = Ba
         this.handleTabDataMessage(m as Message<typeof BaseMessageTypes.TAB_DATA>, sourcePort);
         break;
 
-      case BaseMessageTypes.BROADCAST:
-        this.broadcastMessage(m, sourcePort);
-        break;
-
       case BaseMessageTypes.PING:
         this.handlePing(sourcePort);
         break;
@@ -175,6 +170,10 @@ export abstract class SharedWorker<C extends any, S extends BaseWorkerState = Ba
       const tabId = this.ports.get(connectionId)!.tabId;
 
       this.ports.delete(connectionId);
+
+      this.updateState({
+        tabsConnected: this.getActiveTabsCount()
+      });
       console.log(`[SharedWorker] Tab unregistered: ${connectionId}. Remaining: ${this.getActiveTabsCount()}`);
     }
   }
@@ -333,6 +332,7 @@ export abstract class SharedWorker<C extends any, S extends BaseWorkerState = Ba
     ));
   }
 
+  //
   private getActiveTabsCount(): number {
     // Count only ports with tabId (registered tabs)
     let count = 0;
@@ -353,25 +353,12 @@ export abstract class SharedWorker<C extends any, S extends BaseWorkerState = Ba
     return this.workerId;
   }
 
-  public getTabCount(): number {
-    return this.getActiveTabsCount();
-  }
-
-  public getSharedData(key: string): any {
-    return this.sharedData.get(key);
-  }
-
-  public getAllSharedData(): Map<string, any> {
-    return new Map(this.sharedData);
-  }
-
   public cleanup(): void {
     if (this.heartbeatInterval) {
       clearInterval(this.heartbeatInterval);
     }
 
     this.ports.clear();
-    this.sharedData.clear();
 
     console.log('[SharedWorker] Cleaned up');
   }

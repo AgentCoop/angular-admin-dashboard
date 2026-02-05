@@ -6,7 +6,7 @@ import { Base64 } from 'js-base64';
 import { v4 as uuid } from 'uuid';
 
 @Injectable({ providedIn: 'root' })
-export class SharedWorkerProvider {
+export class WorkerProviderService {
   private workers: Map<string, SharedWorker> = new Map();
   private readonly isSupported: boolean;
 
