@@ -1,4 +1,3 @@
-import { Observable } from 'rxjs';
 import { WindowNetworkMonitor, WorkerNetworkMonitor, NetworkMonitor } from './index';
 
 export class NetworkMonitorFactory {

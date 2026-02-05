@@ -2,26 +2,33 @@
 /// <reference lib="webworker" />
 
 import {
-  SyncDataMessage, WorkerMessage, WorkerMessageDirection, WorkerMessageType, ExtendedMessagePort,
-  TabRegisterMessage, BroadcastMessage
+  WorkerMessageDirection, ExtendedMessagePort,
+  BaseMessageTypes, Message, MessageFactory, BaseWorkerState
 } from './types';
 import { v4 as uuid } from 'uuid';
 import {Base64} from 'js-base64';
 
 declare const self: SharedWorkerGlobalScope;
 
-export class SharedWorker<Config extends any> {
+export abstract class SharedWorker<C extends any, S extends BaseWorkerState = BaseWorkerState> {
   private ports: Map<string, ExtendedMessagePort> = new Map(); // keyed by connectionId
   private readonly workerId: string;
   private sharedData: Map<string, any> = new Map();
   private heartbeatInterval?: number;
-  private connectionCounter: number = 0;
 
-  protected config: Config;
+  private _state: S;
 
-  constructor() {
+  get state(): Readonly<S> {
+    return this._state;
+  }
+
+  protected config: C;
+
+  protected constructor() {
     this.workerId = uuid();
     console.log('SHARED WORKER: Initialized with ID: %s, location: %s', this.workerId, self.location.href)
+
+    this._state = this.getInitialState();
 
     // Set up connection handler
     self.onconnect = this.handleConnection.bind(this);
@@ -37,6 +44,9 @@ export class SharedWorker<Config extends any> {
 
     this.config = config;
   }
+
+  // Abstract method for derived classes to provide initial state
+  protected abstract getInitialState(): S;
 
   /**
    * Helper to decode params from the URL in worker context
@@ -85,11 +95,11 @@ export class SharedWorker<Config extends any> {
     console.log(`[SharedWorker] New connection (${connectionId}). Total: ${this.ports.size}`);
 
     // Set up message handler
-    port.onmessage = async (e: MessageEvent<WorkerMessage>) => {
+    port.onmessage = (e: MessageEvent<Message>) => {
       console.log('[SharedWorker] Message from', connectionId, ':', e.data);
 
       if (e.data) {
-        await this.handleMessage(e.data, port, connectionId);
+        this.handleMessage(e.data, port, connectionId);
       }
     };
 
@@ -102,47 +112,43 @@ export class SharedWorker<Config extends any> {
     port.start();
   }
 
-  private async handleMessage(data: WorkerMessage, sourcePort: ExtendedMessagePort, connectionId: string): Promise<void> {
+  protected handleMessage(m: Message, sourcePort: ExtendedMessagePort, connectionId: string): void {
     // Update heartbeat on any message
     sourcePort.lastHeartbeat = Date.now();
 
-    switch (data.type) {
-      case WorkerMessageType.TAB_REGISTER:
-        this.handleTabRegister(data, sourcePort, connectionId);
+    switch (m.type) {
+      case BaseMessageTypes.TAB_REGISTER:
+        this.handleTabRegister(m as Message<typeof BaseMessageTypes.TAB_REGISTER>, sourcePort, connectionId);
         break;
 
-      case WorkerMessageType.TAB_UNREGISTER:
+      case BaseMessageTypes.TAB_UNREGISTER:
         this.handleTabUnregister(connectionId);
         break;
 
-      case WorkerMessageType.BROADCAST:
-        this.broadcastMessage(data, sourcePort);
+      case BaseMessageTypes.TAB_DATA:
+        this.handleTabDataMessage(m as Message<typeof BaseMessageTypes.TAB_DATA>, sourcePort);
         break;
 
-      case WorkerMessageType.PING:
+      case BaseMessageTypes.BROADCAST:
+        this.broadcastMessage(m, sourcePort);
+        break;
+
+      case BaseMessageTypes.PING:
         this.handlePing(sourcePort);
         break;
 
-      case WorkerMessageType.SYNC_DATA:
-        this.handleSyncData(data, sourcePort);
-        break;
-
-      case WorkerMessageType.REQUEST:
-        this.handleRequest(data, sourcePort);
-        break;
-
-      case WorkerMessageType.TARGETED_MESSAGE:
-        this.handleTargetedMessage(data);
-        break;
-
       default:
-        console.warn('[SharedWorker] Unknown message type:', data.type);
-        this.sendError(sourcePort, `Unknown message type: ${data.type}`);
+        console.warn('[SharedWorker] Unknown message type:', m.type);
+        this.sendError(sourcePort, `Unknown message type: ${m.type}`);
     }
   }
 
-  private handleTabRegister(data: TabRegisterMessage, port: ExtendedMessagePort, connectionId: string): void {
-    const { tabId } = data;
+  private handleTabRegister(
+    data: Message<typeof BaseMessageTypes.TAB_REGISTER>,
+    port: ExtendedMessagePort,
+    connectionId: string
+  ): void {
+    const { payload: { tabId } } = data;
 
     if (!tabId) {
       console.error('[SharedWorker] Tab register missing tabId');
@@ -157,12 +163,11 @@ export class SharedWorker<Config extends any> {
 
     this.ports.set(connectionId, port);
 
-    console.log(`[SharedWorker] Tab registered: ${tabId}. Total tabs: ${this.getActiveTabsCount()}`);
-    // Notify all tabs about the new count
-    this.broadcastTabCount();
+    this.updateState({
+      tabsConnected: this.ports.size,
+    });
 
-    // Send current shared-sharedWorker data to new tab
-    this.syncDataToTab(port);
+    console.log(`[SharedWorker] Tab registered: ${tabId}. Total tabs: ${this.getActiveTabsCount()}`);
   }
 
   private handleTabUnregister(connectionId: string): void {
@@ -171,8 +176,19 @@ export class SharedWorker<Config extends any> {
 
       this.ports.delete(connectionId);
       console.log(`[SharedWorker] Tab unregistered: ${connectionId}. Remaining: ${this.getActiveTabsCount()}`);
+    }
+  }
 
-      this.broadcastTabCount();
+  private handleTabDataMessage(
+    m: Message<typeof BaseMessageTypes.TAB_DATA>,
+    sourcePort: ExtendedMessagePort,
+  ): void {
+    const { metadata } = m;
+
+    if (metadata.broadcast) {
+      this.broadcastMessage(m, sourcePort);
+    } else {
+      // todo: single target
     }
   }
 
@@ -180,346 +196,52 @@ export class SharedWorker<Config extends any> {
     this.sendPong(port);
   }
 
-  // Handle sync data
-  //
-
-  private handleSyncData(data: SyncDataMessage, sourcePort: ExtendedMessagePort): void {
-    const { key, value, operation = 'set' } = data;
-
-    if (!key || value === undefined) {
-      console.warn('[SharedWorker] Invalid sync data - missing key or value');
-      return;
-    }
-
-    // Process the data based on operation
-    let newValue = value;
-    let finalValue = value;
-    const isNestedKey = key.includes('.');
-
-    switch (operation) {
-      case 'set':
-        if (isNestedKey) {
-          this.setNestedValue(key, value);
-        } else {
-          this.sharedData.set(key, value);
-        }
-        console.log(`[SharedWorker] Data set: ${key} =`, value);
-        break;
-
-      case 'update':
-        if (isNestedKey) {
-          newValue = this.updateNestedValue(key, value);
-          finalValue = this.getNestedValue(key);
-        } else {
-          const current = this.sharedData.get(key);
-          if (current !== undefined) {
-            // Handle different update scenarios
-            if (typeof current === 'object' && current !== null && typeof value === 'object') {
-              // Merge objects
-              newValue = { ...current, ...value };
-            } else if (Array.isArray(current) && Array.isArray(value)) {
-              // Merge arrays
-              newValue = [...current, ...value];
-            } else {
-              // Replace
-              newValue = value;
-            }
-            this.sharedData.set(key, newValue);
-            finalValue = newValue;
-          } else {
-            this.sharedData.set(key, value);
-            finalValue = value;
-          }
-        }
-        console.log(`[SharedWorker] Data updated: ${key} =`, finalValue);
-        break;
-
-      case 'delete':
-        if (isNestedKey) {
-          this.deleteNestedValue(key);
-        } else {
-          this.sharedData.delete(key);
-        }
-        console.log(`[SharedWorker] Data deleted: ${key}`);
-        // For delete operations, broadcast with undefined value
-        finalValue = undefined;
-        break;
-    }
-
-    // Broadcast to other tabs (skip if it was a delete on a non-existent nested path)
-    if (operation !== 'delete' || finalValue !== undefined) {
-      this.broadcastToOthers(sourcePort, {
-        type: WorkerMessageType.SYNC_DATA,
-        key,
-        value: finalValue,
-        operation,
-        timestamp: Date.now(),
-        direction: WorkerMessageDirection.FROM_WORKER
-      });
-    }
-  }
-
-  // Helper methods for nested operations
-  //
-
-  private setNestedValue(key: string, value: any): void {
-    const parts = key.split('.');
-    const rootKey = parts[0];
-    const path = parts.slice(1);
-
-    let root = this.sharedData.get(rootKey);
-    if (!root || typeof root !== 'object') {
-      root = {};
-    }
-
-    this.setValueAtPath(root, path, value);
-    this.sharedData.set(rootKey, root);
-  }
-
-  private updateNestedValue(key: string, value: any): any {
-    const parts = key.split('.');
-    const rootKey = parts[0];
-    const path = parts.slice(1);
-
-    let root = this.sharedData.get(rootKey);
-    if (!root || typeof root !== 'object') {
-      root = {};
-    }
-
-    this.updateValueAtPath(root, path, value);
-    this.sharedData.set(rootKey, root);
-
-    return this.getNestedValue(key);
-  }
-
-  private deleteNestedValue(key: string): void {
-    const parts = key.split('.');
-    const rootKey = parts[0];
-    const path = parts.slice(1);
-
-    const root = this.sharedData.get(rootKey);
-    if (!root || typeof root !== 'object') {
-      return;
-    }
-
-    this.deleteValueAtPath(root, path);
-    this.sharedData.set(rootKey, root);
-  }
-
-  private getNestedValue(key: string): any {
-    const parts = key.split('.');
-    const rootKey = parts[0];
-    const path = parts.slice(1);
-
-    const root = this.sharedData.get(rootKey);
-    if (!root || typeof root !== 'object') {
-      return undefined;
-    }
-
-    return this.getValueAtPath(root, path);
-  }
-
-  private setValueAtPath(obj: any, path: string[], value: any): void {
-    let current = obj;
-
-    // Navigate to the second-to-last key
-    for (let i = 0; i < path.length - 1; i++) {
-      const key = path[i];
-      if (!(key in current) || typeof current[key] !== 'object') {
-        current[key] = {};
-      }
-      current = current[key];
-    }
-
-    // Set the final value
-    const lastKey = path[path.length - 1];
-    current[lastKey] = value;
-  }
-
-  private updateValueAtPath(obj: any, path: string[], value: any): void {
-    let current = obj;
-
-    // Navigate to the second-to-last key
-    for (let i = 0; i < path.length - 1; i++) {
-      const key = path[i];
-      if (!(key in current) || typeof current[key] !== 'object') {
-        current[key] = {};
-      }
-      current = current[key];
-    }
-
-    const lastKey = path[path.length - 1];
-    const existing = current[lastKey];
-
-    // Handle different update scenarios
-    if (existing !== undefined && typeof existing === 'object' && existing !== null && typeof value === 'object') {
-      // Merge objects
-      current[lastKey] = { ...existing, ...value };
-    } else if (Array.isArray(existing) && Array.isArray(value)) {
-      // Merge arrays
-      current[lastKey] = [...existing, ...value];
-    } else {
-      // Replace
-      current[lastKey] = value;
-    }
-  }
-
-  private deleteValueAtPath(obj: any, path: string[]): void {
-    let current = obj;
-
-    // Navigate to the parent of the target
-    for (let i = 0; i < path.length - 1; i++) {
-      const key = path[i];
-      if (!(key in current) || typeof current[key] !== 'object') {
-        return; // Path doesn't exist
-      }
-      current = current[key];
-    }
-
-    const lastKey = path[path.length - 1];
-    if (lastKey in current) {
-      delete current[lastKey];
-    }
-  }
-
-  private getValueAtPath(obj: any, path: string[]): any {
-    let current = obj;
-
-    for (const key of path) {
-      if (current === null || current === undefined || typeof current !== 'object' || !(key in current)) {
-        return undefined;
-      }
-      current = current[key];
-    }
-
-    return current;
-  }
-
-  // end of sync data helpers
-  //
-
-  private handleRequest(data: WorkerMessage, sourcePort: ExtendedMessagePort): void {
-    const { requestId, payload, correlationId } = data as any;
-
-    // Example request handling - customize based on your needs
-    const response = {
-      type: WorkerMessageType.RESPONSE,
-      requestId,
-      correlationId,
-      success: true,
-      payload: { message: `Processed request ${requestId}`, original: payload },
-      timestamp: Date.now(),
-      direction: WorkerMessageDirection.FROM_WORKER
-    };
-
-    //this.sendMessage(sourcePort, response);
-  }
-
-  private handleTargetedMessage(data: WorkerMessage): void {
-    const { targetTabId, payload } = data as any;
-
-    if (targetTabId && this.ports.has(targetTabId)) {
-      const targetPort = this.ports.get(targetTabId)!;
-      // this.sendMessage(targetPort, {
-      //   type: WorkerMessageType.TARGETED_MESSAGE,
-      //   payload,
-      //   //sourceTabId: (data as any).tabId,
-      //   timestamp: Date.now(),
-      //   direction: WorkerMessageDirection.FROM_WORKER
-      // });
-    }
-  }
-
   private broadcastMessage(
-    message: WorkerMessage,
-    sourcePort: ExtendedMessagePort,
+    m: Message,
+    excludePort?: ExtendedMessagePort,
   ): void {
     this.ports.forEach((port, tabId) => {
-      if (port === sourcePort) {
+      if (excludePort && port === excludePort) {
         return;
       }
 
-      // Create broadcast message
-      const broadcastMsg: WorkerMessage = {
-        ...message,
-        timestamp: Date.now(),
-        direction: WorkerMessageDirection.FROM_WORKER,
-        tabId: port.tabId,
+      const broadcastMsg: Message = {
+        ...m,
+        metadata: {
+          ...m.metadata,
+          broadcasted: true,
+        }
       };
 
-      try {
-        port.postMessage(broadcastMsg);
-      } catch (error) {
-        console.warn(`[SharedWorker] Failed to broadcast to tab ${tabId}:`, error);
-      }
+      this.sendMessage(port, broadcastMsg);
     });
   }
 
-  private broadcastToOthers(sourcePort: ExtendedMessagePort, message: WorkerMessage): void {
-    this.ports.forEach((port, tabId) => {
-      if (port !== sourcePort) {
-        port.postMessage(message);
-      }
-    });
-  }
-
-  private broadcastTabCount(): void {
-    const count = this.getActiveTabsCount();
-    const message: SyncDataMessage = {
-      type: WorkerMessageType.SYNC_DATA,
-      key: 'sys.tabCount',
-      value: count,
-      timestamp: Date.now(),
-      direction: WorkerMessageDirection.FROM_WORKER
-    };
-
-    //this.broadcastMessage(message, this.po)
-  }
-
-  private syncDataToTab(port: ExtendedMessagePort): void {
-    if (this.sharedData.size > 0) {
-      this.sharedData.forEach((value, key) => {
-        this.sendMessage(port, {
-          type: WorkerMessageType.SYNC_DATA,
-          key,
-          value,
-          timestamp: Date.now(),
-          direction: WorkerMessageDirection.FROM_WORKER
-        });
-      });
-    }
-  }
-
-  private sendWelcomeMessage(port: ExtendedMessagePort): void {
-    this.sendMessage(port, {
-      type: WorkerMessageType.WORKER_CONNECTED,
-      workerId: this.workerId,
-      timestamp: Date.now(),
-      direction: WorkerMessageDirection.FROM_WORKER,
-      //connectedTabs:  this.ports,
-    });
+  private sendPing(port: ExtendedMessagePort): void {
+    this.sendMessage(port, MessageFactory.create(
+      BaseMessageTypes.PING, { }
+    ));
   }
 
   private sendPong(port: ExtendedMessagePort): void {
-    this.sendMessage(port, {
-      type: WorkerMessageType.PONG,
-      timestamp: Date.now(),
-      direction: WorkerMessageDirection.FROM_WORKER
-    });
+    this.sendMessage(port, MessageFactory.create(
+      BaseMessageTypes.PONG, {
+        latency: 0,
+      }
+    ));
   }
 
-  private sendError(port: ExtendedMessagePort, error: string): void {
-    this.sendMessage(port, {
-      type: WorkerMessageType.ERROR,
-      error,
-      timestamp: Date.now(),
-      direction: WorkerMessageDirection.FROM_WORKER
-    });
+  private sendError(port: ExtendedMessagePort, message: string): void {
+    this.sendMessage(port, MessageFactory.create(
+      BaseMessageTypes.ERROR, {
+        message
+      }
+    ));
   }
 
-  private sendMessage(port: ExtendedMessagePort, message: WorkerMessage): void {
+  private sendMessage(port: ExtendedMessagePort, m: Message): void {
     try {
-      port.postMessage(message);
+      port.postMessage(m);
     } catch (error) {
       console.error('[SharedWorker] Failed to send message:', error);
       // Try to identify and remove the broken port
@@ -537,17 +259,18 @@ export class SharedWorker<Config extends any> {
     });
 
     if (portToRemove) {
-      this.ports.delete(portToRemove);
-      console.log(`[SharedWorker] Removed broken port: ${portToRemove}`);
-      this.broadcastTabCount();
+      this.removePort(portToRemove);
     }
   }
 
   private removePort(portId: string): void {
     if (this.ports.has(portId)) {
       this.ports.delete(portId);
+      this.updateState({
+        tabsConnected: this.ports.size,
+      });
+
       console.log(`[SharedWorker] Port removed: ${portId}. Remaining: ${this.ports.size}`);
-      this.broadcastTabCount();
     }
   }
 
@@ -576,11 +299,7 @@ export class SharedWorker<Config extends any> {
       } else {
         // Send ping to test connection
         try {
-          port.postMessage({
-            type: WorkerMessageType.PING,
-            timestamp: now,
-            direction: WorkerMessageDirection.FROM_WORKER
-          });
+          this.sendPing(port);
         } catch (error) {
           console.log(`[SharedWorker] Tab ${tabId} connection lost`);
           this.ports.delete(tabId);
@@ -589,9 +308,29 @@ export class SharedWorker<Config extends any> {
     });
 
     // Update tab count if any were removed
-    if (this.ports.size !== this.getActiveTabsCount()) {
-      this.broadcastTabCount();
+    if (this.ports.size !== this.state.tabsConnected) {
+      this.updateState({
+        tabsConnected: this.ports.size
+      })
     }
+  }
+
+  protected updateState<K extends keyof S>(
+    updates: Pick<S, K> | ((prev: S) => Pick<S, K>)
+  ): void {
+    const newState = {
+      ...this._state,
+      ...(typeof updates === 'function' ? updates(this._state) : updates),
+      lastUpdate: Date.now()
+    };
+
+    this._state = newState;
+
+    this.broadcastMessage(MessageFactory.create(
+      BaseMessageTypes.WORKER_STATE, {
+        state: newState,
+      }
+    ));
   }
 
   private getActiveTabsCount(): number {

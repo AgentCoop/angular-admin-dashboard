@@ -7,8 +7,13 @@ import {FormsModule} from '@angular/forms';
 import {StateService} from './core/services/state.service';
 import {AuthService} from './core/services/auth.service';
 import {ThemeService} from './core/services/theme.service';
-import {SharedWorkerService} from '@core/communication/workers/shared-worker'; // ✅ ADDED
-import {WorkerMessageType} from '@core/communication/workers/shared-worker/types'; // ✅ ADDED
+import {
+  Message,
+  BaseMessageTypes,
+  SharedWorkerService,
+  BaseWorkerState
+} from '@core/communication/workers/shared-worker'; // ✅ ADDED
+import {AllMessageTypes} from '@core/communication/workers/shared-worker'; // ✅ ADDED
 import {DraggableDirective, DragPosition} from '@core/drag-drop';
 
 interface ColoredSquare {
@@ -54,6 +59,7 @@ interface ChatWindow {
 
 // ✅ ADDED: Chat Message Interface
 interface ChatMessage {
+  windowId: number;
   id: string;
   text: string;
   sender: string;
@@ -270,63 +276,37 @@ export class App implements OnInit, AfterViewInit, OnDestroy {
     // Get current tab ID
     this.currentTabId.set(this.workerService.getTabId());
 
-    // Listen for tab count updates
-    const tabCountSub = this.workerService.tabCount$.subscribe(count => {
-      this.connectedTabs.set(count);
-      this.addSystemMessage(1, `📊 ${count} tab(s) connected`);
-    });
-
     // Listen for broadcast messages (chat messages)
     const messageSub = this.workerService.messages$.subscribe(message => {
       this.handleWorkerMessage(message);
     });
 
     // Listen for specific chat messages
-    const chatSub = this.workerService.on('CHAT_MESSAGE').subscribe((message: any) => {
-      this.handleChatMessage(message);
+    const chatSub = this.workerService.onAppData<ChatMessage>('CHAT_MESSAGE').subscribe(({ meta, data }) => {
+      this.handleChatMessage(data);
     });
 
-    // Listen for window sync messages
-    const syncSub = this.workerService.on('CHAT_WINDOW_SYNC').subscribe((message: any) => {
-      this.handleWindowSync(message);
-    });
-
-    this.subscriptions.push(connectionSub, tabCountSub, messageSub, chatSub, syncSub);
+    this.subscriptions.push(connectionSub, messageSub, chatSub);
   }
 
-  // ✅ ADDED: Handle incoming shared-worker messages
-  private handleWorkerMessage(message: any): void {
-    switch (message.type) {
-      case WorkerMessageType.WORKER_CONNECTED:
+  // Handle incoming shared-worker messages
+  private handleWorkerMessage(m: Message): void {
+    switch (m.type) {
+      case BaseMessageTypes.WORKER_CONNECTED:
         this.workerConnected.set(true);
         this.addChatLog('Worker connected', 0);
         break;
 
-      case WorkerMessageType.TAB_REGISTER:
-        if (message.count !== undefined) {
-          this.connectedTabs.set(message.count);
-          this.addSystemMessage(1, `🔗 ${message.count} tab(s) connected`);
-        }
-        break;
-
-      case WorkerMessageType.BROADCAST:
-        this.handleChatMessage(message);
-        break;
-
-      case 'CHAT_WINDOW_SYNC':
-        this.handleWindowSync(message);
-        break;
-
-      case 'SYNC_DATA':
-        if (message.key === 'chat_window_positions') {
-          this.syncChatWindowPositions(message.value);
-        }
+      case BaseMessageTypes.WORKER_STATE:
+        const state = m.payload as BaseWorkerState;
+        this.connectedTabs.set(state.tabsConnected);
+        this.addSystemMessage(1, `🔗 ${state.tabsConnected} tab(s) connected`);
         break;
     }
   }
 
-  private handleChatMessage(message: any): void {
-    const { windowId, text, sender, tabId, timestamp } = message.payload || {};
+  private handleChatMessage(message: ChatMessage): void {
+    const { windowId, text, sender, tabId, timestamp } = message;
 
     // Skip if this is our own message (we already added it locally)
     // if (tabId === this.currentTabId()) {
@@ -335,6 +315,7 @@ export class App implements OnInit, AfterViewInit, OnDestroy {
 
     if (windowId && text) {
       const chatMessage: ChatMessage = {
+        windowId,
         id: `${Date.now()}_${Math.random()}`,
         text,
         sender: sender || `Tab ${tabId?.substring(0, 8)}`,
@@ -365,46 +346,6 @@ export class App implements OnInit, AfterViewInit, OnDestroy {
       // Add to logs
       this.addChatLog(`Message from ${sender} in ${this.getWindowTitle(windowId)}: ${text}`, windowId);
     }
-  }
-
-  // ✅ ADDED: Handle window sync
-  private handleWindowSync(message: any): void {
-    const { action, windowId, position, isMinimized } = message.payload || {};
-
-    if (action === 'window_moved' && windowId && position) {
-      this.chatWindows.update(windows =>
-        windows.map(window => {
-          if (window.id === windowId && message.tabId !== this.currentTabId()) {
-            return { ...window, position };
-          }
-          return window;
-        })
-      );
-    }
-
-    if (action === 'window_minimized' && windowId !== undefined) {
-      this.chatWindows.update(windows =>
-        windows.map(window => {
-          if (window.id === windowId && message.tabId !== this.currentTabId()) {
-            return { ...window, isMinimized };
-          }
-          return window;
-        })
-      );
-    }
-  }
-
-  // ✅ ADDED: Sync chat window positions
-  private syncChatWindowPositions(positions: any): void {
-    this.chatWindows.update(windows =>
-      windows.map(window => {
-        const savedPosition = positions[window.id];
-        if (savedPosition) {
-          return { ...window, position: savedPosition };
-        }
-        return window;
-      })
-    );
   }
 
   ngAfterViewInit(): void {
@@ -445,13 +386,13 @@ export class App implements OnInit, AfterViewInit, OnDestroy {
     this.addOwnMessageToChat(windowId, messageText, tabId, timestamp);
 
     // 2. THEN: Broadcast to other tabs
-    this.workerService.broadcast({
+    this.workerService.sendData('CHAT_MESSAGE', {
       windowId,
       text: messageText,
-      sender: 'me', // or this.currentUser$.value?.name || 'Anonymous',
+      sender: tabId,
       tabId: tabId,
       timestamp: timestamp
-    });
+    }, { broadcast: true });
 
     // 3. Clear input
     this.chatWindows.update(windows =>
@@ -467,6 +408,7 @@ export class App implements OnInit, AfterViewInit, OnDestroy {
 // Helper method to add your own message locally
   private addOwnMessageToChat(windowId: number, text: string, tabId: string, timestamp: number): void {
     const ownMessage: ChatMessage = {
+      windowId,
       id: `own_${timestamp}_${Math.random().toString(36).substring(2, 9)}`,
       text,
       sender: 'You', // Show "You" for your own messages
@@ -561,11 +503,6 @@ export class App implements OnInit, AfterViewInit, OnDestroy {
       positions[window.id] = window.position;
     });
     localStorage.setItem('chatPositions', JSON.stringify(positions));
-
-    // Also sync via shared-worker
-    if (this.workerConnected()) {
-      this.workerService.syncData('chat_window_positions', positions);
-    }
   }
 
   // Load chat window positions
@@ -589,6 +526,7 @@ export class App implements OnInit, AfterViewInit, OnDestroy {
   // Add system message to chat
   private addSystemMessage(windowId: number, text: string): void {
     const systemMessage: ChatMessage = {
+      windowId,
       id: `sys_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
       text,
       sender: 'System',

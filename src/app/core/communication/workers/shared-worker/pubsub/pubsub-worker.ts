@@ -2,10 +2,10 @@
 // pubsub.ts
 /// <reference lib="webworker" />
 
-import { ExtendedMessagePort, BaseWorkerMessage } from '../';
 import { SharedWorker } from '../shared-worker';
-//import { WorkerMessageType, WorkerMessageDirection, PubSubPublishMessage } from './shared-worker-base';
 import { CentrifugeService } from '../../../transport/centrifuge';
+import {BaseWorkerState, ExtendedMessagePort, Message} from '../types';
+import {PubSubState} from '@core/communication/workers/shared-worker/pubsub/types';
 
 export interface Config {
   url: string;
@@ -13,9 +13,8 @@ export interface Config {
   getToken?: (ctx: any) => Promise<string>
 }
 
-export class PubSubSharedWorker extends SharedWorker<Config> {
+export class PubSubSharedWorker extends SharedWorker<Config, PubSubState> {
   private centrifugeService: CentrifugeService | null = null;
-  private centrifugeConfig: { url: string; token?: string; getToken?: (ctx: any) => Promise<string> } | null = null;
   private channelSubscriptions: Map<string, any> = new Map(); // Centrifuge subscriptions by channel
   private tabChannels: Map<string, Set<string>> = new Map(); // tabId -> Set<channels>
 
@@ -23,7 +22,6 @@ export class PubSubSharedWorker extends SharedWorker<Config> {
     super();
 
     this.initializeCentrifuge();
-    console.log('[PubSubSharedWorker] Initialized, centrifuge config: %o', this.config);
   }
 
   // Initialize Centrifuge connection
@@ -44,23 +42,20 @@ export class PubSubSharedWorker extends SharedWorker<Config> {
         console.log(`[PubSubSharedWorker] Centrifuge connection state: ${state}`);
       });
 
-      console.log('[PubSubSharedWorker] Centrifuge service initialized');
+      console.log('[PubSubSharedWorker] Initialized, centrifuge config: %o', this.config);
     } catch (error) {
       console.error('[PubSubSharedWorker] Failed to initialize Centrifuge:', error);
     }
   }
 
-  // Setup connection for a tab
-  protected async setupConnection(port: ExtendedMessagePort, tabId: string): Promise<void> {
-    // Initialize Centrifuge if not already done
-    if (this.centrifugeConfig && !this.centrifugeService) {
-      await this.initializeCentrifuge();
-    }
+  protected override getInitialState(): PubSubState {
+    return {
+      tabsConnected: 0,
+    };
+  }
 
-    // Initialize tab channels tracking
-    this.tabChannels.set(tabId, new Set());
-
-    console.log(`[PubSubSharedWorker] Setup connection for tab ${tabId}`);
+  protected override handleMessage(data: Message, sourcePort: ExtendedMessagePort, connectionId: string): void {
+    super.handleMessage(data, sourcePort, connectionId);
   }
 
   // Cleanup

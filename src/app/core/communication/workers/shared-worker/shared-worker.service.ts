@@ -6,21 +6,17 @@ import {BehaviorSubject, EMPTY, fromEvent, merge, Observable, Subject, Subscript
 import {catchError, debounceTime, distinctUntilChanged, filter, map, share, takeUntil} from 'rxjs/operators';
 import {SharedWorkerProvider} from './shared-worker.provider';
 import {
-  BroadcastOptions,
-  ConnectionStatus,
-  OutgoingMessage,
-  TabRegisterMessage,
-  TabUnregisterMessage,
-  WorkerMessage,
-  WorkerMessageDirection,
-  WorkerMessageType
+  BaseMessageTypes,
+  Message,
+  ConnectionStatus, MessageFactory,
+  WorkerMessageDirection, BroadcastOptions, MessageMetadata,
 } from './types';
 
 @Injectable({ providedIn: 'root' })
 export class SharedWorkerService implements OnDestroy {
   private worker: SharedWorker | null = null;
   private destroy$ = new Subject<void>();
-  private messageSubject = new Subject<WorkerMessage>();
+  private messageSubject = new Subject<Message>();
   private connectionSubject = new BehaviorSubject<ConnectionStatus>({
     isConnected: false,
     connectedTabs: 1
@@ -32,12 +28,12 @@ export class SharedWorkerService implements OnDestroy {
   private heartbeatSubscription?: Subscription;
 
   // Cache for lazy initialization
-  private _messages$: Observable<WorkerMessage> | null = null;
+  private _messages$: Observable<Message> | null = null;
   private _connection$: Observable<ConnectionStatus> | null = null;
 
   // Public observables
   public tabCount$ = new BehaviorSubject<number>(1);
-  public readonly messages$: Observable<WorkerMessage>;
+  public readonly messages$: Observable<Message>;
   public readonly connection$: Observable<ConnectionStatus>;
 
   constructor(
@@ -68,7 +64,7 @@ export class SharedWorkerService implements OnDestroy {
     this.setupUnloadHandler();
   }
 
-  private getMessagesObservable(): Observable<WorkerMessage> {
+  private getMessagesObservable(): Observable<Message> {
     if (!this._messages$) {
       this._messages$ = this.messageSubject.pipe(
         share(),
@@ -139,10 +135,11 @@ export class SharedWorkerService implements OnDestroy {
   }
 
   private sendTabRegister(): void {
-    const registerTabMessage = {
-      type: WorkerMessageType.TAB_REGISTER,
-      url: window.location.href,
-    } as TabRegisterMessage;
+    const registerTabMessage = MessageFactory.create(BaseMessageTypes.TAB_REGISTER,
+      {
+        tabId: this.tabId,
+        url: window.location.href
+      });
 
     this.postMessage(registerTabMessage);
   }
@@ -186,11 +183,11 @@ export class SharedWorkerService implements OnDestroy {
   private setupMessageHandlers(): void {
     // Handle connection messages
     this.messages$.pipe(
-      filter(msg => msg.type === WorkerMessageType.WORKER_CONNECTED),
+      filter(msg => msg.type === BaseMessageTypes.WORKER_CONNECTED),
       takeUntil(this.destroy$)
     ).subscribe((msg) => {
       this.reconnectAttempts = 0;
-      this.updateConnectionStatus(true, msg.workerId);
+      //this.updateConnectionStatus(true, msg?.workerId);
     });
 
     // Handle tab count updates
@@ -262,9 +259,10 @@ export class SharedWorkerService implements OnDestroy {
     if (this.connectionSubject.value.isConnected) {
       try {
         // Send immediate unregister message
-        const unregisterMessage = {
-          type: WorkerMessageType.TAB_UNREGISTER,
-        } as TabUnregisterMessage;
+        const unregisterMessage = MessageFactory.create(BaseMessageTypes.TAB_UNREGISTER,
+          {
+            tabId: this.tabId,
+          });
 
         this.postMessage(unregisterMessage);
       } catch (error) {
@@ -273,31 +271,27 @@ export class SharedWorkerService implements OnDestroy {
     }
   }
 
-  private handleWorkerMessage(data: any): void {
-    if (!data || !data.type) {
-      console.warn('Invalid shared-worker message:', data);
+  private handleWorkerMessage(m: Message): void {
+    if (!m || !m.type) {
+      console.warn('Invalid shared-worker message:', m);
       return;
     }
 
-    console.log('worker message %o', data);
+    const { metadata: { timestamp } } = m;
+    console.log('worker message %o', m);
 
-    const message: WorkerMessage = {
-      ...data,
-      direction: WorkerMessageDirection.FROM_WORKER
-    };
-
-    switch (message.type) {
-      case WorkerMessageType.WORKER_CONNECTED:
-        console.log('Connected to SharedWorker:', (message as any).workerId);
-        this.updateConnectionStatus(true, (message as any).workerId);
+    switch (m.type) {
+      case BaseMessageTypes.WORKER_CONNECTED:
+        console.log('Connected to SharedWorker:', (m as any).workerId);
+        this.updateConnectionStatus(true, (m as any).workerId);
         break;
 
-      case WorkerMessageType.PING:
+      case BaseMessageTypes.PING:
         break;
 
-      case WorkerMessageType.PONG:
+      case BaseMessageTypes.PONG:
         // Update latency
-        const latency = Date.now() - message.timestamp;
+        const latency = Date.now() - timestamp;
         this.updateConnectionStatus(
           this.connectionSubject.value.isConnected,
           this.connectionSubject.value.workerId,
@@ -306,12 +300,12 @@ export class SharedWorkerService implements OnDestroy {
         );
         break;
 
-      case WorkerMessageType.ERROR:
-        console.error('Worker reported error:', (message as any).error);
+      case BaseMessageTypes.ERROR:
+        console.error('Worker reported error:', (m as any).error);
         break;
 
       default:
-        this.messageSubject.next(message);
+        this.messageSubject.next(m);
     }
   }
 
@@ -374,20 +368,33 @@ export class SharedWorkerService implements OnDestroy {
 
   // ============ Public API ============
 
-  public postMessage<T extends OutgoingMessage>(message: T): void {
+  public sendData(key: string, value: any, options: { broadcast?: boolean } = {}) {
+    const m = MessageFactory.create(BaseMessageTypes.TAB_DATA, {
+      key, value
+    });
+
+    this.postMessage(m, options);
+  }
+
+  public postMessage(m: Message, options: { broadcast?: boolean } = {}): void {
     if (!this.worker || !this.connectionSubject.value.isConnected) {
-      console.warn('SharedWorker not connected, message queued:', message.type);
+      console.warn('SharedWorker not connected, message queued:', m.type);
       // TODO: Implement message queue for reconnection
       return;
     }
 
     try {
-      const fullMessage = {
-        ...message,
-        direction: WorkerMessageDirection.TO_WORKER,
-        timestamp: Date.now(),
-        tabId: this.tabId,
-      } as T & { direction: WorkerMessageDirection; timestamp: number };
+      // Create the enhanced message with proper metadata
+      const fullMessage: Message = {
+        ...m,
+        metadata: {
+          ...m.metadata,
+          direction: WorkerMessageDirection.TO_WORKER,
+          timestamp: m.metadata?.timestamp ?? Date.now(),
+          tabId: this.tabId,
+          broadcast: options.broadcast ?? false,
+        }
+      };
 
       this.worker.port.postMessage(fullMessage);
     } catch (error) {
@@ -396,27 +403,35 @@ export class SharedWorkerService implements OnDestroy {
     }
   }
 
-  public broadcast<T>(payload: T, options?: BroadcastOptions): void {
-    this.postMessage({
-      type: WorkerMessageType.BROADCAST,
-      payload,
-      options,
-    });
+  public broadcast(data: any, options: BroadcastOptions = {}): void {
+    const broadcastMessage = MessageFactory.create(
+      BaseMessageTypes.BROADCAST,
+      {
+        ...options,
+        data: data,
+      }
+    );
+
+    this.postMessage(broadcastMessage);
   }
 
-  public syncData<T>(key: string, value: T): void {
-    // this.postMessage({
-    //   type: WorkerMessageType.SYNC_DATA,
-    //   //key,
-    //   //value,
-    //   tabId: this.tabId
-    // });
-  }
-
-  public on<T>(messageType: WorkerMessageType | string): Observable<WorkerMessage & { payload: T }> {
+  public on<T>(messageType: string): Observable<T> {
     return this.messages$.pipe(
       filter(msg => msg.type === messageType),
-      map(msg => msg as WorkerMessage & { payload: T })
+      map(msg => msg.payload as T)
+    );
+  }
+
+  public onAppData<T>(key: string): Observable<{ data: T; meta: MessageMetadata }> {
+    return this.messages$.pipe(
+      filter((msg): msg is Message<typeof BaseMessageTypes.TAB_DATA> =>
+        msg.type === BaseMessageTypes.TAB_DATA
+      ),
+      filter(msg => msg.payload.key === key),
+      map(msg => ({
+        data: msg.payload.value as T,
+        meta: msg.metadata
+      }))
     );
   }
 

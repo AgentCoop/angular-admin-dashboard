@@ -1,5 +1,6 @@
 // types.ts
 
+import {PubSubMessagePayloads, PubSubMessageTypes} from './pubsub/types';
 
 export interface ExtendedMessagePort extends MessagePort {
   tabId: string;
@@ -8,34 +9,109 @@ export interface ExtendedMessagePort extends MessagePort {
   isActive?: boolean;
 }
 
-export enum WorkerMessageType {
+export interface BaseWorkerState {
+  tabsConnected: number;
+}
 
+export interface BroadcastOptions {
+  channel?: string; // For any worker supporting pub/sub mechanism.
+  exclude?: string[];
+}
+
+export const BaseMessageTypes = {
   // Connection Management
-  WORKER_CONNECTED = 'WORKER_CONNECTED',
-  TAB_REGISTER = 'TAB_REGISTER',
-  TAB_UNREGISTER = 'TAB_UNREGISTER',
-  TAB_HEARTBEAT = 'TAB_HEARTBEAT',
-  TAB_VISIBILITY = 'TAB_VISIBILITY',
+  WORKER_CONNECTED: 'WORKER_CONNECTED',
+  WORKER_STATE: 'WORKER_STATE',
+  TAB_REGISTER: 'TAB_REGISTER',
+  TAB_UNREGISTER: 'TAB_UNREGISTER',
+  TAB_DATA: 'TAB_DATA',
+  TAB_HEARTBEAT: 'TAB_HEARTBEAT',
+  TAB_VISIBILITY: 'TAB_VISIBILITY',
 
   // Communication
-  BROADCAST = 'BROADCAST',
-  TARGETED_MESSAGE = 'TARGETED_MESSAGE',
-  REQUEST = 'REQUEST',
-  RESPONSE = 'RESPONSE',
+  BROADCAST: 'BROADCAST',
 
-  // State Management
-  STATE_UPDATE = 'STATE_UPDATE',
-  STATE_REQUEST = 'STATE_REQUEST',
-  STATE_RESPONSE = 'STATE_RESPONSE',
 
   // System
-  PING = 'PING',
-  PONG = 'PONG',
-  ERROR = 'ERROR',
+  PING: 'PING',
+  PONG: 'PONG',
+  ERROR: 'ERROR',
+} as const;
 
-  // Sync
-  SYNC_DATA = 'SYNC_DATA',
-  SYNC_REQUEST = 'SYNC_REQUEST'
+// Type for all base messages
+export type BaseMessageType = typeof BaseMessageTypes[keyof typeof BaseMessageTypes];
+
+export const AllMessageTypes = {
+  ...BaseMessageTypes,
+  ...PubSubMessageTypes
+} as const;
+
+export type AllMessageTypes = typeof AllMessageTypes[keyof typeof AllMessageTypes]//keyof AllMessagePayloads;
+
+export interface BaseMessagePayloads {
+  [BaseMessageTypes.WORKER_CONNECTED]: {
+    workerId: string;
+    timestamp: number;
+    capabilities: string[];
+  };
+
+  [BaseMessageTypes.WORKER_STATE]: {
+    state: BaseWorkerState;
+  };
+
+  [BaseMessageTypes.TAB_REGISTER]: {
+    tabId: string;
+    url: string;
+    userAgent?: string;
+    sessionId?: string;
+  };
+
+  [BaseMessageTypes.TAB_UNREGISTER]: {
+    tabId: string;
+    reason?: 'closed' | 'navigated' | 'crashed';
+  };
+
+  [BaseMessageTypes.TAB_DATA]: {
+    key: string;
+    value: any;
+  };
+
+  [BaseMessageTypes.TAB_HEARTBEAT]: {
+    tabId: string;
+    timestamp: number;
+    memoryUsage?: number;
+  };
+
+  [BaseMessageTypes.BROADCAST]: {
+    data: any;
+    channel?: string;
+    exclude?: string[];
+  };
+
+  [BaseMessageTypes.PING]: {
+    nonce?: string;
+  };
+
+  [BaseMessageTypes.PONG]: {
+    latency: number;
+  };
+
+  [BaseMessageTypes.ERROR]: {
+    code?: string;
+    message: string;
+  };
+}
+
+export type AllMessagePayloads =
+  & BaseMessagePayloads
+  & PubSubMessagePayloads;
+
+
+// Message definition
+export interface Message<T extends AllMessageTypes = AllMessageTypes> {
+  type: T;
+  payload: T extends keyof AllMessagePayloads ? AllMessagePayloads[T] : any;
+  metadata: MessageMetadata;
 }
 
 export enum WorkerMessageDirection {
@@ -43,160 +119,36 @@ export enum WorkerMessageDirection {
   FROM_WORKER = 'FROM_WORKER'
 }
 
-export interface BaseWorkerMessage {
-  type: WorkerMessageType;
-  timestamp: number;
+export interface MessageMetadata {
   direction: WorkerMessageDirection;
-  correlationId?: string;
+  timestamp: number;
   tabId?: string;
+  broadcasted?: boolean;
+  broadcast?: boolean;
 }
 
-export interface ConnectionMessage extends BaseWorkerMessage {
-  type: WorkerMessageType.WORKER_CONNECTED;
-  workerId: string;
-}
+export class MessageFactory {
+  private static getDefaultDirection(): WorkerMessageDirection {
+    // Worker environments don't have window
+    return typeof window === 'undefined'
+      ? WorkerMessageDirection.FROM_WORKER
+      : WorkerMessageDirection.TO_WORKER;
+  }
 
-export interface TabRegisterMessage extends BaseWorkerMessage {
-  type: WorkerMessageType.TAB_REGISTER;
-  url: string;
-}
-
-export interface TabUnregisterMessage extends BaseWorkerMessage {
-  type: WorkerMessageType.TAB_UNREGISTER;
-}
-
-export interface TabHeartbeatMessage extends BaseWorkerMessage {
-  type: WorkerMessageType.TAB_HEARTBEAT;
-  isActive: boolean;
-}
-
-export interface TabVisibilityMessage extends BaseWorkerMessage {
-  type: WorkerMessageType.TAB_VISIBILITY;
-  isVisible: boolean;
-}
-
-export interface BroadcastMessage<T = any> extends BaseWorkerMessage {
-  type: WorkerMessageType.BROADCAST;
-  payload: T;
-}
-
-export interface TargetedMessage<T = any> extends BaseWorkerMessage {
-  type: WorkerMessageType.TARGETED_MESSAGE;
-  payload: T;
-  targetTabId: string;
-  sender?: string;
-}
-
-export interface RequestMessage<T = any> extends BaseWorkerMessage {
-  type: WorkerMessageType.REQUEST;
-  payload: T;
-  responseType?: string;
-  timeout?: number;
-}
-
-export interface ResponseMessage<T = any> extends BaseWorkerMessage {
-  type: WorkerMessageType.RESPONSE;
-  payload: T;
-  requestId?: string;
-  success: boolean;
-  error?: string;
-}
-
-export interface SyncDataMessage<T = any> extends BaseWorkerMessage {
-  /**
-   * Message type identifier for data synchronization operations.
-   * Used by the Shared Worker to route messages to the appropriate handler.
-   */
-  type: WorkerMessageType.SYNC_DATA;
-
-  /**
-   * Unique key identifying the data being synchronized.
-   * This acts as a storage identifier within the Shared Worker's data map.
-   * Example: 'userPreferences', 'shoppingCart', 'sessionToken'
-   */
-  key: string;
-
-  /**
-   * The data value to be synchronized across all connected tabs.
-   * Can be any serializable JavaScript type (object, array, primitive).
-   * Generic type <T> allows for type-safe usage in TypeScript.
-   *
-   * @example
-   * // String value
-   * { key: 'theme', value: 'dark' }
-   */
-  value: T;
-
-  /**
-   * Optional operation type defining how the data should be processed.
-   * Controls how the Shared Worker handles the incoming data.
-   *
-   * @default 'set' - Overwrites existing value with the new value
-   *
-   * @example 'set' - Replace entire value
-   * { key: 'cart', value: newCart, operation: 'set' }
-   *
-   * @example 'update' - Merge/update partial data (useful for objects)
-   * { key: 'userProfile', value: { avatar: 'new.jpg' }, operation: 'update' }
-   * // Results in: { ...existingProfile, avatar: 'new.jpg' }
-   *
-   * @example 'delete' - Remove the key from shared-worker storage
-   * { key: 'tempData', operation: 'delete' }
-   * // Note: 'value' is ignored for delete operations
-   */
-  operation?: 'set' | 'update' | 'delete';
-}
-
-export interface PingMessage extends BaseWorkerMessage {
-  type: WorkerMessageType.PING;
-}
-
-export interface PongMessage extends BaseWorkerMessage {
-  type: WorkerMessageType.PONG;
-}
-
-export interface ErrorMessage extends BaseWorkerMessage {
-  type: WorkerMessageType.ERROR;
-  error: string;
-  code?: string;
-  originalMessage?: BaseWorkerMessage;
-}
-
-// Union type for all messages
-export type WorkerMessage =
-  | ConnectionMessage
-  | TabRegisterMessage
-  | TabUnregisterMessage
-  | TabHeartbeatMessage
-  | TabVisibilityMessage
-  | BroadcastMessage
-  | TargetedMessage
-  | RequestMessage
-  | ResponseMessage
-  | SyncDataMessage
-  | PingMessage
-  | PongMessage
-  | ErrorMessage
-;
-
-export type OutgoingMessage = Omit<WorkerMessage, 'direction' | 'timestamp' | 'tabId'>;
-
-// Supporting interfaces
-export interface TabInfo {
-  id: string;
-  url?: string;
-  title?: string;
-  userAgent?: string;
-  lastActive: number;
-  isActive: boolean;
-  metadata?: Record<string, any>;
-}
-
-export interface BroadcastOptions {
-  excludeSelf?: boolean;
-  ttl?: number;
-  priority?: 'low' | 'normal' | 'high' | 'critical';
-  requireAck?: boolean;
+  static create<T extends keyof AllMessagePayloads>(
+    type: T,
+    payload: T extends keyof AllMessagePayloads ? AllMessagePayloads[T] : any,
+    metadata: Partial<MessageMetadata> = {}
+  ): Message<T> {
+    return {
+      type,
+      payload,
+      metadata: {
+        direction: metadata.direction ?? this.getDefaultDirection(),
+        timestamp: metadata.timestamp ?? Date.now(),
+      },
+    };
+  }
 }
 
 export interface ConnectionStatus {
@@ -205,12 +157,4 @@ export interface ConnectionStatus {
   connectedTabs: number;
   lastMessageTime?: number;
   latency?: number;
-}
-
-export interface WorkerConfig {
-  heartbeatInterval?: number;
-  maxInactivityTime?: number;
-  enableLogging?: boolean;
-  reconnectAttempts?: number;
-  reconnectDelay?: number;
 }
