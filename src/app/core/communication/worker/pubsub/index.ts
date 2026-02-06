@@ -2,4 +2,4 @@
 
 export * from './pubsub-worker';
 
-export * from './types';
+export * from './pubsub.types';

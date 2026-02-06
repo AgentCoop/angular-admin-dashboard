@@ -392,16 +392,16 @@ export class WorkerProxyService implements OnDestroy {
   /**
    * Invoke a method on a worker service
    */
-  invoke<T>(
+  invoke<A, R>(
     serviceHandle: string,
     methodName: string,
-    data: any,
+    args: A,
     options: InvokeOptions = {}
-  ): Promise<T> {
+  ): Promise<R> {
     // Merge with defaults
     const opts = { ...DEFAULT_INVOKE_OPTIONS, ...options };
 
-    return new Promise<T>((resolve, reject) => {
+    return new Promise<R>((resolve, reject) => {
       const requestId = uuid();
 
       // Set up timeout
@@ -422,7 +422,7 @@ export class WorkerProxyService implements OnDestroy {
 
       // Store the promise callbacks
       this.pendingRequests.set(requestId, {
-        resolve: (result: T) => {
+        resolve: (result: R) => {
           cleanup();
           resolve(result);
         },
@@ -435,7 +435,7 @@ export class WorkerProxyService implements OnDestroy {
       const message = MessageFactory.create(BaseMessageTypes.RPC_REQUEST, {
         requestId,
         methodName,
-        args: data,
+        args,
       });
 
       // Send to appropriate worker type
@@ -485,7 +485,7 @@ export class WorkerProxyService implements OnDestroy {
    *                 - The shared worker connection is closed or errored
    *                 - Message serialization fails (circular references, etc.)
    */
-  syncTabData(handle: ServiceHandle, key: string, value: any, op: TabSyncDataOp): void {
+  syncTabData(handle: ServiceHandle, key: string, value: any, op: TabSyncDataOp, extraMetadata: Partial<MessageMetadata> = {}): void {
     // Validate the shared worker exists before attempting to send data
     const sharedWorker = this.sharedWorkers.get(handle);
 
@@ -504,14 +504,17 @@ export class WorkerProxyService implements OnDestroy {
       );
     }
 
+    const metadata = {
+      ...extraMetadata,
+      tabId: this.tabId // Include the sender's tab ID for context
+    } as MessageMetadata;
+
     try {
       const syncDataMsg = MessageFactory.create(SharedWorkerMessageTypes.TAB_SYNC_DATA, {
         key,
         value,
-        op
-      }, {
-        tabId: this.tabId, // Include the sender's tab ID for context
-      });
+        op,
+      }, metadata);
 
       // Send the message to the shared worker
       // The worker will broadcast it to all other connected tabs

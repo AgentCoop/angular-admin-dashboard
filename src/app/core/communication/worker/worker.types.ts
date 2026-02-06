@@ -1,8 +1,5 @@
 // types.ts
 
-import {PubSubMessagePayloads, PubSubMessageTypes} from './pubsub/types';
-
-
 export type AnyWorker = Worker | SharedWorker;
 export type WorkerType = 'dedicated' | 'shared';
 export type ServiceHandle = string;
@@ -48,12 +45,6 @@ export const BaseMessageTypes = {
   RPC_RESPONSE_RESULT: 'RPC_RESPONSE_RESULT',
   RPC_RESPONSE_ERROR: 'RPC_RESPONSE_ERROR',
 
-  // TAB_REGISTER: 'TAB_REGISTER',
-  // TAB_UNREGISTER: 'TAB_UNREGISTER',
-  // TAB_DATA: 'TAB_DATA',
-  // TAB_HEARTBEAT: 'TAB_HEARTBEAT',
-  // TAB_VISIBILITY: 'TAB_VISIBILITY',
-
   // System
   PING: 'PING',
   PONG: 'PONG',
@@ -74,7 +65,6 @@ export type SharedWorkerMessageType = typeof SharedWorkerMessageTypes[keyof type
 export const AllMessageTypes = {
   ...BaseMessageTypes,
   ...SharedWorkerMessageTypes,
-  ...PubSubMessageTypes
 } as const;
 
 export type AllMessageTypes = typeof AllMessageTypes[keyof typeof AllMessageTypes]//keyof AllMessagePayloads;
@@ -145,8 +135,7 @@ export interface SharedWorkerMessagePayloads {
 
 export type AllMessagePayloads =
   & BaseMessagePayloads
-  & SharedWorkerMessagePayloads
-  & PubSubMessagePayloads;
+  & SharedWorkerMessagePayloads;
 
 // Message definition
 export interface Message<T extends AllMessageTypes = AllMessageTypes> {
@@ -184,6 +173,7 @@ export class MessageFactory {
       type,
       payload,
       metadata: {
+        ...metadata,
         direction: metadata.direction ?? this.getDefaultDirection(),
         timestamp: metadata.timestamp ?? Date.now(),
       },

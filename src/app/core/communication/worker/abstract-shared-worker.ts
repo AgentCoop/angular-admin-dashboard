@@ -128,7 +128,6 @@ export abstract class AbstractSharedWorker<C extends any, S extends BaseWorkerSt
     }
   }
 
-
   protected handleError(error: ErrorEvent): void {
     console.error(`[${this.workerType}] Global error:`, error);
   }

@@ -16,6 +16,7 @@ import {
 } from '@core/communication/worker'; // ✅ ADDED
 import {AllMessageTypes} from '@core/communication/worker'; // ✅ ADDED
 import {DraggableDirective, DragPosition} from '@core/drag-drop';
+import {rpcSubscribeMethod, rpcSubscribeParams} from '@core/communication/worker/pubsub';
 
 interface ColoredSquare {
   id: number;
@@ -68,6 +69,8 @@ interface ChatMessage {
   isOwn: boolean;
   tabId: string; // Which tab sent the message
 }
+
+const ChatTopic = 'CHAT_MESSAGES';
 
 @Component({
   selector: 'app-root',
@@ -269,6 +272,14 @@ export class App implements OnInit, AfterViewInit, OnDestroy {
       'url': 'ws://localhost:8005/connection/websocket?format=json'
     });
 
+    void this.workerProxyService.invoke<rpcSubscribeParams, void>(this.pubSubHandle, rpcSubscribeMethod, {
+      centrifugoChannel: 'chat',
+      centrifugoToken: '',
+      topic: ChatTopic
+    }).catch(e => {
+      console.error('Failed to subscribe to', e)
+    });
+
     // Monitor connection status
     // const connectionSub = this.workerService.connection$.subscribe(status => {
     //   this.workerConnected.set(status.isConnected);
@@ -291,7 +302,7 @@ export class App implements OnInit, AfterViewInit, OnDestroy {
     // });
 
     // Listen for specific chat messages
-    const chatSub = this.workerProxyService.onTabSyncData<ChatMessage>('CHAT_MESSAGE').subscribe(({ op, value }) => {
+    const chatSub = this.workerProxyService.onTabSyncData<ChatMessage>(ChatTopic).subscribe(({ op, value }) => {
       this.handleChatMessage(value);
     });
 
@@ -306,16 +317,18 @@ export class App implements OnInit, AfterViewInit, OnDestroy {
         this.addChatLog('Worker connected', 0);
         break;
 
-      case BaseMessageTypes.WORKER_STATE:
-        const state = m.payload.state as BaseWorkerState;
-        this.connectedTabs.set(state.tabsConnected);
-        this.addSystemMessage(1, `🔗 ${state.tabsConnected} tab(s) connected`);
-        break;
+      // case BaseMessageTypes.WORKER_STATE:
+      //   const state = m.payload.state as BaseWorkerState;
+      //   this.connectedTabs.set(state.tabsConnected);
+      //   this.addSystemMessage(1, `🔗 ${state.tabsConnected} tab(s) connected`);
+      //   break;
     }
   }
 
   private handleChatMessage(message: ChatMessage): void {
     const { windowId, text, sender, tabId, timestamp } = message;
+
+    console.log('Chta message', message);
 
     // Skip if this is our own message (we already added it locally)
     if (tabId === this.currentTabId()) {
@@ -396,13 +409,13 @@ export class App implements OnInit, AfterViewInit, OnDestroy {
     this.addOwnMessageToChat(windowId, messageText, tabId, timestamp);
 
     // 2. THEN: Broadcast to other tabs
-    this.workerProxyService.syncTabData(this.pubSubHandle!, 'CHAT_MESSAGE', {
+    this.workerProxyService.syncTabData(this.pubSubHandle!,  ChatTopic, {
       windowId,
       text: messageText,
       sender: tabId,
       tabId: tabId,
       timestamp: timestamp
-    }, 'add');
+    }, 'add', { upstreamChannel: 'chat' });
 
     // 3. Clear input
     this.chatWindows.update(windows =>
