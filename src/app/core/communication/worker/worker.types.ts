@@ -45,13 +45,14 @@ export const BaseMessageTypes = {
   WORKER_STATE: 'WORKER_STATE',
 
   RPC_REQUEST: 'RPC_REQUEST',
-  RPC_RESPONSE: 'RPC_RESPONSE',
+  RPC_RESPONSE_RESULT: 'RPC_RESPONSE_RESULT',
+  RPC_RESPONSE_ERROR: 'RPC_RESPONSE_ERROR',
 
-  TAB_REGISTER: 'TAB_REGISTER',
-  TAB_UNREGISTER: 'TAB_UNREGISTER',
-  TAB_DATA: 'TAB_DATA',
-  TAB_HEARTBEAT: 'TAB_HEARTBEAT',
-  TAB_VISIBILITY: 'TAB_VISIBILITY',
+  // TAB_REGISTER: 'TAB_REGISTER',
+  // TAB_UNREGISTER: 'TAB_UNREGISTER',
+  // TAB_DATA: 'TAB_DATA',
+  // TAB_HEARTBEAT: 'TAB_HEARTBEAT',
+  // TAB_VISIBILITY: 'TAB_VISIBILITY',
 
   // System
   PING: 'PING',
@@ -87,15 +88,20 @@ export interface BaseMessagePayloads {
 
   [BaseMessageTypes.RPC_REQUEST]: {
     methodName: string;
-    data: any;
+    args: any;
     requestId: string;
     timeout?: number;
   };
 
-  [BaseMessageTypes.RPC_RESPONSE]: {
+  [BaseMessageTypes.RPC_RESPONSE_RESULT]: {
     requestId: string;
-    result?: any;
-    error?: any;
+    result: any;
+    executionTime: number;
+  };
+
+  [BaseMessageTypes.RPC_RESPONSE_ERROR]: {
+    requestId: string;
+    error: string;
   };
 
   [BaseMessageTypes.WORKER_STATE]: {
@@ -158,11 +164,7 @@ export interface MessageMetadata {
   direction: WorkerMessageDirection;
   timestamp: number;
   tabId?: string;
-  broadcasted?: boolean;
-  broadcast?: boolean;
-  correlationId?: string;
-  error?: string;
-  result?: any;
+  upstreamChannel?: string;
 }
 
 export class MessageFactory {
@@ -187,6 +189,31 @@ export class MessageFactory {
       },
     };
   }
+}
+
+// RPC method handler type
+export type RpcMethodHandler<T = unknown, R = unknown> = (
+  args: T,
+  context: {
+    connectionId: string;
+    port: MessagePort | Worker;
+
+    /**
+     * AbortSignal triggered when:
+     *  - RPC timeout occurs
+     *  - caller disconnects
+     *  - worker cancels the request
+     *
+     * Handlers MUST listen to this to stop long-running work.
+     */
+    signal: AbortSignal;
+  }
+) => Promise<R> | R;
+
+// RPC method descriptor
+export interface RpcMethodDescriptor<T = any, R = any> {
+  handler: RpcMethodHandler<T, R>;
+  timeout?: number;
 }
 
 export interface ConnectionStatus {

@@ -61,10 +61,7 @@ export abstract class AbstractSharedWorker<C extends any, S extends BaseWorkerSt
     console.log('TabSyncData data:', m);
   }
 
-  protected handleMessage(m: Message, sourcePort: ExtendedMessagePort, connectionId: string): void {
-    // Update heartbeat on any message
-    sourcePort.lastHeartbeat = Date.now();
-
+  protected override handleMessage(m: Message, sourcePort: Worker | MessagePort, connectionId: string): void {
     switch (m.type) {
       case SharedWorkerMessageTypes.TAB_REGISTER:
         this.handleTabRegister(m as Message<typeof SharedWorkerMessageTypes.TAB_REGISTER>, connectionId);
@@ -79,8 +76,7 @@ export abstract class AbstractSharedWorker<C extends any, S extends BaseWorkerSt
         break;
 
       default:
-        console.warn('[SharedWorker] Unknown message type:', m.type);
-        this.sendErrorMessage(`Unknown message type: ${m.type}`);
+        super.handleMessage(m, sourcePort, connectionId);
     }
   }
 

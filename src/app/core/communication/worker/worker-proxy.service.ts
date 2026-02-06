@@ -284,8 +284,8 @@ export class WorkerProxyService implements OnDestroy {
         break;
 
 
-      case BaseMessageTypes.RPC_RESPONSE:
-        this.handleRpcResponse(m as Message<typeof BaseMessageTypes.RPC_RESPONSE>);
+      case BaseMessageTypes.RPC_RESPONSE_RESULT:
+        this.handleRpcResponseResult(m as Message<typeof BaseMessageTypes.RPC_RESPONSE_RESULT>);
         break;
 
       default:
@@ -299,16 +299,12 @@ export class WorkerProxyService implements OnDestroy {
     this.tabSyncDataSubject.next({key, metadata: m.metadata, op, value});
   }
 
-  private handleRpcResponse(m: Message<typeof BaseMessageTypes.RPC_RESPONSE>) {
-    const { requestId, result, error } = m.payload;
+  private handleRpcResponseResult(m: Message<typeof BaseMessageTypes.RPC_RESPONSE_RESULT>) {
+    const { requestId, result } = m.payload;
     const pendingRequest = this.pendingRequests.get(requestId!);
 
     if (pendingRequest) {
-      if (error) {
-        pendingRequest.reject(new Error(error));
-      } else {
-        pendingRequest.resolve(result);
-      }
+      pendingRequest.resolve(result);
       this.pendingRequests.delete(requestId);
     }
   }
@@ -439,7 +435,7 @@ export class WorkerProxyService implements OnDestroy {
       const message = MessageFactory.create(BaseMessageTypes.RPC_REQUEST, {
         requestId,
         methodName,
-        data,
+        args: data,
       });
 
       // Send to appropriate worker type

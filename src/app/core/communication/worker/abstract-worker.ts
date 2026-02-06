@@ -2,7 +2,8 @@ import {
   BaseMessageTypes,
   Message,
   MessageFactory,
-  BaseWorkerState, PortDescriptor
+  BaseWorkerState, PortDescriptor,
+  RpcMethodHandler, RpcMethodDescriptor
 } from './worker.types';
 import { Base64 } from 'js-base64';
 
@@ -14,6 +15,9 @@ import { Base64 } from 'js-base64';
  * @template S - State type that extends BaseWorkerState
  */
 export abstract class AbstractWorker<C extends any, S extends BaseWorkerState = BaseWorkerState> {
+  private rpcMethods: Map<string, RpcMethodDescriptor> = new Map();
+  private rpcTimeouts: Map<string, ReturnType<typeof setTimeout>> = new Map();
+
   private _state: S;
 
   /**
@@ -55,6 +59,115 @@ export abstract class AbstractWorker<C extends any, S extends BaseWorkerState = 
    */
   protected abstract getInitialState(): S;
 
+  protected handleMessage(m: Message, sourcePort: Worker | MessagePort, connectionId: string): void {
+    switch (m.type) {
+      case BaseMessageTypes.RPC_REQUEST:
+        void this.handleRpcRequest(
+          m as Message<typeof BaseMessageTypes.RPC_REQUEST>,
+          connectionId,
+          sourcePort
+        ).catch(err => {
+          console.error('Unhandled RPC handler error:', err);
+        });
+
+        break;
+
+      default:
+        console.warn('Unknown message type:', m.type);
+        this.sendErrorMessage(`Unknown message type: ${m.type}`);
+    }
+  }
+
+  /**
+   * Handle incoming RPC request from a client.
+   */
+  private async handleRpcRequest(
+    message: Message<typeof BaseMessageTypes.RPC_REQUEST>,
+    connectionId: string,
+    sourcePort: Worker | MessagePort
+  ): Promise<void> {
+    const { requestId, methodName, args } = message.payload;
+    const startTime = Date.now();
+
+    try {
+      if (!requestId) {
+        throw new Error('Missing requestId in RPC request');
+      }
+
+      if (!methodName) {
+        throw new Error('Missing method name in RPC request');
+      }
+
+      const methodDescriptor = this.rpcMethods.get(methodName);
+      if (!methodDescriptor) {
+        throw new Error(`Unknown RPC method: ${methodName}`);
+      }
+
+      const controller = new AbortController();
+      const { signal } = controller;
+
+      const timeout = methodDescriptor.timeout ?? 30_000;
+
+      // Timeout promise
+      let timeoutId: ReturnType<typeof setTimeout>;
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        timeoutId = setTimeout(() => {
+          controller.abort();
+          reject(
+            new Error(
+              `RPC method "${methodName}" timed out after ${timeout}ms`
+            )
+          );
+        }, timeout);
+
+        this.rpcTimeouts.set(requestId, timeoutId);
+      });
+
+      // Handler execution
+      const handlerPromise = Promise.resolve(
+        methodDescriptor.handler(args ?? {}, {
+          connectionId,
+          port: sourcePort,
+          signal,
+        })
+      );
+
+      // Race handler vs timeout
+      const result = await Promise.race([
+        handlerPromise,
+        timeoutPromise
+      ]);
+
+      // success → cancel timeout
+      clearTimeout(timeoutId!);
+
+      const executionTime = Date.now() - startTime;
+
+      this.sendRpcResult(sourcePort, requestId, result, executionTime);
+      console.debug(
+        `RPC request completed: ${methodName} in ${executionTime}ms`
+      );
+
+    } catch (error) {
+      console.error(
+        `RPC request failed: ${methodName}`,
+        error
+      );
+
+      const message =
+        error instanceof Error ? error.message : String(error);
+
+      this.sendRpcError(sourcePort, requestId, message);
+    } finally {
+      // Always cleanup timeout map
+      const timeoutId = this.rpcTimeouts.get(requestId);
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+        this.rpcTimeouts.delete(requestId);
+      }
+    }
+  }
+
   /**
    * Adds a new port to the worker's port map.
    *
@@ -82,6 +195,31 @@ export abstract class AbstractWorker<C extends any, S extends BaseWorkerState = 
     console.log(`Port added: ${connectionId}, total connections: ${this.ports.size}`);
 
     return descriptor;
+  }
+
+  /**
+   * Register an RPC method that can be called from client tabs.
+   *
+   * @param methodName - Unique name for the method
+   * @param descriptor - Method handler and metadata
+   * @returns This worker instance for chaining
+   */
+  protected registerRpcMethod<T = any, R = any>(
+    methodName: string,
+    descriptor: RpcMethodDescriptor<T, R> | RpcMethodHandler<T, R>
+  ): this {
+    const methodDescriptor = typeof descriptor === 'function'
+      ? { handler: descriptor }
+      : descriptor;
+
+    if (this.rpcMethods.has(methodName)) {
+      console.warn(`Overwriting existing RPC method: ${methodName}`);
+    }
+
+    this.rpcMethods.set(methodName, methodDescriptor as RpcMethodDescriptor);
+    console.debug(`Registered RPC method: ${methodName}`);
+
+    return this;
   }
 
   /**
@@ -153,6 +291,57 @@ export abstract class AbstractWorker<C extends any, S extends BaseWorkerState = 
   }
 
   /**
+   * Sends a successful RPC result back to the calling port.
+   *
+   * @param sourcePort     The Worker/MessagePort that initiated the request
+   * @param requestId      Correlation id to match the original RPC request
+   * @param result         Handler result payload (must be structured-cloneable)
+   * @param executionTime  Total execution duration in ms (for metrics/monitoring)
+   */
+  private sendRpcResult(
+    sourcePort: Worker | MessagePort,
+    requestId: string,
+    result: unknown,
+    executionTime: number
+  ): void {
+    const message = MessageFactory.create(
+      BaseMessageTypes.RPC_RESPONSE_RESULT,
+      {
+        requestId,
+        result,
+        executionTime,
+      }
+    );
+
+    // Target only the originating port (not broadcast)
+    this.targetMessage(sourcePort, message);
+  }
+
+  /**
+   * Sends an RPC error back to the caller.
+   *
+   * @param sourcePort     The Worker/MessagePort that initiated the request
+   * @param requestId      Correlation id to match the original RPC request
+   * @param error          Human-readable error message
+
+   */
+  private sendRpcError(
+    sourcePort: Worker | MessagePort,
+    requestId: string,
+    error: string,
+  ): void {
+    const message = MessageFactory.create(
+      BaseMessageTypes.RPC_RESPONSE_ERROR,
+      {
+        requestId,
+        error,
+      }
+    );
+
+    this.targetMessage(sourcePort, message);
+  }
+
+  /**
    * Sends an error message through the worker's port.
    * Used for reporting errors to connected clients/tabs.
    *
@@ -183,8 +372,12 @@ export abstract class AbstractWorker<C extends any, S extends BaseWorkerState = 
       return;
     }
 
+    this.ports.forEach(d => this.targetMessage(d.port, m));
+  }
+
+  protected targetMessage(port: Worker | MessagePort, m: Message): void {
     try {
-      this.ports.forEach(d => d.port.postMessage(m));
+      port.postMessage(m);
     } catch (error) {
       // Log error but don't crash the worker
       console.error('Failed to send message through worker port:', {
