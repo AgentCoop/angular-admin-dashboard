@@ -10,7 +10,8 @@ import {ThemeService} from './core/services/theme.service';
 import {
   Message,
   BaseMessageTypes,
-  WorkerService,
+  WorkerProxyService,
+  ServiceHandle,
   BaseWorkerState
 } from '@core/communication/worker'; // ✅ ADDED
 import {AllMessageTypes} from '@core/communication/worker'; // ✅ ADDED
@@ -86,7 +87,8 @@ export class App implements OnInit, AfterViewInit, OnDestroy {
   private state = inject(StateService);
   private authService = inject(AuthService);
   private themeService = inject(ThemeService);
-  private workerService = inject(WorkerService); // ✅ ADDED
+  private workerProxyService = inject(WorkerProxyService);
+  private pubSubHandle: ServiceHandle | undefined;
 
   // View References
   @ViewChild('draggableArea', { static: false }) draggableAreaRef!: ElementRef<HTMLDivElement>;
@@ -263,30 +265,37 @@ export class App implements OnInit, AfterViewInit, OnDestroy {
 
   // ✅ ADDED: Initialize Shared Worker
   private initializeWorker(): void {
-    // Monitor connection status
-    const connectionSub = this.workerService.connection$.subscribe(status => {
-      this.workerConnected.set(status.isConnected);
-      this.connectedTabs.set(status.connectedTabs);
-
-      if (status.isConnected) {
-        console.log(`✅ Connected to worker. Tabs: ${status.connectedTabs}`);
-      }
+    this.pubSubHandle = this.workerProxyService.createWorker('pubsub-worker', 'shared', {
+      'url': 'ws://localhost:8005/connection/websocket?format=json'
     });
+
+    // Monitor connection status
+    // const connectionSub = this.workerService.connection$.subscribe(status => {
+    //   this.workerConnected.set(status.isConnected);
+    //   this.connectedTabs.set(status.connectedTabs);
+    //
+    //   if (status.isConnected) {
+    //     console.log(`✅ Connected to worker. Tabs: ${status.connectedTabs}`);
+    //   }
+    // });
+
+    this.workerConnected.set(true);
+    this.connectedTabs.set(1);
 
     // Get current tab ID
-    this.currentTabId.set(this.workerService.getTabId());
+    this.currentTabId.set(this.workerProxyService.getTabId());
 
     // Listen for broadcast messages (chat messages)
-    const messageSub = this.workerService.messages$.subscribe(message => {
-      this.handleWorkerMessage(message);
-    });
+    // const messageSub = this.workerService.messages$.subscribe(message => {
+    //   this.handleWorkerMessage(message);
+    // });
 
     // Listen for specific chat messages
-    const chatSub = this.workerService.onAppData<ChatMessage>('CHAT_MESSAGE').subscribe(({ meta, data }) => {
-      this.handleChatMessage(data);
+    const chatSub = this.workerProxyService.onTabSyncData<ChatMessage>('CHAT_MESSAGE').subscribe(({ op, value }) => {
+      this.handleChatMessage(value);
     });
 
-    this.subscriptions.push(connectionSub, messageSub, chatSub);
+    this.subscriptions.push(chatSub);
   }
 
   // Handle incoming shared-worker messages
@@ -309,9 +318,10 @@ export class App implements OnInit, AfterViewInit, OnDestroy {
     const { windowId, text, sender, tabId, timestamp } = message;
 
     // Skip if this is our own message (we already added it locally)
-    // if (tabId === this.currentTabId()) {
-    //   return; // We've already shown it locally
-    // }
+    if (tabId === this.currentTabId()) {
+      console.log(`tab id: ${tabId} ${this.currentTabId()}`)
+      return; // We've already shown it locally
+    }
 
     if (windowId && text) {
       const chatMessage: ChatMessage = {
@@ -386,13 +396,13 @@ export class App implements OnInit, AfterViewInit, OnDestroy {
     this.addOwnMessageToChat(windowId, messageText, tabId, timestamp);
 
     // 2. THEN: Broadcast to other tabs
-    this.workerService.sendData('CHAT_MESSAGE', {
+    this.workerProxyService.syncTabData(this.pubSubHandle!, 'CHAT_MESSAGE', {
       windowId,
       text: messageText,
       sender: tabId,
       tabId: tabId,
       timestamp: timestamp
-    }, { broadcast: true });
+    }, 'add');
 
     // 3. Clear input
     this.chatWindows.update(windows =>
@@ -579,16 +589,16 @@ export class App implements OnInit, AfterViewInit, OnDestroy {
   // ✅ ADDED: Test cross-tab message
   testCrossTabMessage(): void {
     if (this.workerConnected()) {
-      this.workerService.sendData(
-        'CHAT_MESSAGE',
-        {
-          windowId: 1,
-          text: `Test message from Tab ${this.currentTabId().substring(0, 8)}`,
-          sender: 'System',
-          tabId: this.currentTabId(),
-          timestamp: Date.now()
-        }
-      );
+      // this.workerService.sendData(
+      //   'CHAT_MESSAGE',
+      //   {
+      //     windowId: 1,
+      //     text: `Test message from Tab ${this.currentTabId().substring(0, 8)}`,
+      //     sender: 'System',
+      //     tabId: this.currentTabId(),
+      //     timestamp: Date.now()
+      //   }
+      // );
 
       this.addSystemMessage(1, 'Test message sent to all tabs');
     } else {

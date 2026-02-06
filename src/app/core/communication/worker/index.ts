@@ -1,11 +1,7 @@
 // src/app/core/communication/shared-worker/index.ts
-/**
- * Barrel exports for Shared Worker module
- */
 
 // Export services
-export { WorkerService } from './worker.service';
-export { WorkerProviderService } from './worker-provider.service';
+export { WorkerProxyService } from './worker-proxy.service';
 
 // Export types
-export * from './types';
+export * from './worker.types';

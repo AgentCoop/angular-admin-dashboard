@@ -2,12 +2,33 @@
 
 import {PubSubMessagePayloads, PubSubMessageTypes} from './pubsub/types';
 
+
+export type AnyWorker = Worker | SharedWorker;
+export type WorkerType = 'dedicated' | 'shared';
+export type ServiceHandle = string;
+
 export interface ExtendedMessagePort extends MessagePort {
   tabId: string;
   lastHeartbeat?: number;
   lastActive: number;
   isActive?: boolean;
 }
+
+export interface PortDescriptor {
+  tabId?: string;
+  lastActive: number;
+  port: MessagePort | Worker;
+}
+
+export interface InvokeOptions {
+  timeout?: number;     // Timeout in milliseconds
+  onTimeout?: () => void; // Callback on timeout
+}
+
+export const DEFAULT_INVOKE_OPTIONS: Required<InvokeOptions> = {
+  timeout: 2000,        // Default 2 seconds
+  onTimeout: () => {},
+};
 
 export interface BaseWorkerState {
   tabsConnected: number;
@@ -22,6 +43,9 @@ export const BaseMessageTypes = {
   //
   WORKER_CONNECTED: 'WORKER_CONNECTED',
   WORKER_STATE: 'WORKER_STATE',
+
+  RPC_REQUEST: 'RPC_REQUEST',
+  RPC_RESPONSE: 'RPC_RESPONSE',
 
   TAB_REGISTER: 'TAB_REGISTER',
   TAB_UNREGISTER: 'TAB_UNREGISTER',
@@ -38,8 +62,17 @@ export const BaseMessageTypes = {
 // Type for all base messages
 export type BaseMessageType = typeof BaseMessageTypes[keyof typeof BaseMessageTypes];
 
+export const SharedWorkerMessageTypes = {
+  TAB_REGISTER: 'TAB_REGISTER',
+  TAB_UNREGISTER: 'TAB_UNREGISTER',
+  TAB_SYNC_DATA: 'TAB_SYNC_DATA',
+} as const;
+
+export type SharedWorkerMessageType = typeof SharedWorkerMessageTypes[keyof typeof SharedWorkerMessageTypes];
+
 export const AllMessageTypes = {
   ...BaseMessageTypes,
+  ...SharedWorkerMessageTypes,
   ...PubSubMessageTypes
 } as const;
 
@@ -52,31 +85,21 @@ export interface BaseMessagePayloads {
     capabilities: string[];
   };
 
+  [BaseMessageTypes.RPC_REQUEST]: {
+    methodName: string;
+    data: any;
+    requestId: string;
+    timeout?: number;
+  };
+
+  [BaseMessageTypes.RPC_RESPONSE]: {
+    requestId: string;
+    result?: any;
+    error?: any;
+  };
+
   [BaseMessageTypes.WORKER_STATE]: {
     state: BaseWorkerState;
-  };
-
-  [BaseMessageTypes.TAB_REGISTER]: {
-    tabId: string;
-    url: string;
-    userAgent?: string;
-    sessionId?: string;
-  };
-
-  [BaseMessageTypes.TAB_UNREGISTER]: {
-    tabId: string;
-    reason?: 'closed' | 'navigated' | 'crashed';
-  };
-
-  [BaseMessageTypes.TAB_DATA]: {
-    key: string;
-    value: any;
-  };
-
-  [BaseMessageTypes.TAB_HEARTBEAT]: {
-    tabId: string;
-    timestamp: number;
-    memoryUsage?: number;
   };
 
   [BaseMessageTypes.PING]: {
@@ -93,10 +116,31 @@ export interface BaseMessagePayloads {
   };
 }
 
+export type TabSyncDataOp = 'add' | 'remove' | 'update';
+
+export interface SharedWorkerMessagePayloads {
+  [SharedWorkerMessageTypes.TAB_REGISTER]: {
+    url: string;
+    userAgent?: string;
+    sessionId?: string;
+  };
+
+  [SharedWorkerMessageTypes.TAB_UNREGISTER]: {
+    tabId: string;
+    reason?: 'closed' | 'navigated' | 'crashed';
+  };
+
+  [SharedWorkerMessageTypes.TAB_SYNC_DATA]: {
+    key: string;
+    value: any;
+    op: TabSyncDataOp;
+  };
+}
+
 export type AllMessagePayloads =
   & BaseMessagePayloads
+  & SharedWorkerMessagePayloads
   & PubSubMessagePayloads;
-
 
 // Message definition
 export interface Message<T extends AllMessageTypes = AllMessageTypes> {
@@ -116,6 +160,9 @@ export interface MessageMetadata {
   tabId?: string;
   broadcasted?: boolean;
   broadcast?: boolean;
+  correlationId?: string;
+  error?: string;
+  result?: any;
 }
 
 export class MessageFactory {

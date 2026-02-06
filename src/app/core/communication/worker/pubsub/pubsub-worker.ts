@@ -2,9 +2,9 @@
 // pubsub.ts
 /// <reference lib="webworker" />
 
-import {WorkerBase} from '../worker-base';
+import {AbstractSharedWorker} from '../abstract-shared-worker';
 import {CentrifugeService} from '../../transport/centrifuge';
-import {ExtendedMessagePort, Message} from '../types';
+import {ExtendedMessagePort, Message} from '../worker.types';
 import {PubSubState} from './types';
 
 export interface Config {
@@ -13,7 +13,7 @@ export interface Config {
   getToken?: (ctx: any) => Promise<string>
 }
 
-export class PubSubSharedWorker extends WorkerBase<Config, PubSubState> {
+export class PubSubSharedWorker extends AbstractSharedWorker<Config, PubSubState> {
   private centrifugeService: CentrifugeService | null = null;
   private channelSubscriptions: Map<string, any> = new Map(); // Centrifuge subscriptions by channel
   private tabChannels: Map<string, Set<string>> = new Map(); // tabId -> Set<channels>
@@ -59,7 +59,7 @@ export class PubSubSharedWorker extends WorkerBase<Config, PubSubState> {
   }
 
   // Cleanup
-  public override cleanup(): void {
+  public override onTerminate(): void {
     // Cleanup Centrifuge
     if (this.centrifugeService) {
       this.centrifugeService.disconnect();
@@ -71,7 +71,7 @@ export class PubSubSharedWorker extends WorkerBase<Config, PubSubState> {
     this.tabChannels.clear();
 
     // Call parent cleanup
-    super.cleanup();
+    super.onTerminate();
 
     console.log('[PubSubSharedWorker] Cleaned up');
   }
