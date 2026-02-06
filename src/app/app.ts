@@ -1,4 +1,14 @@
-import {AfterViewInit, Component, ElementRef, inject, OnDestroy, OnInit, signal, ViewChild} from '@angular/core';
+import {
+  AfterViewInit,
+  Component,
+  ElementRef,
+  inject,
+  OnDestroy,
+  OnInit, QueryList,
+  signal,
+  ViewChild,
+  ViewChildren
+} from '@angular/core';
 import {CommonModule} from '@angular/common';
 import {NavigationEnd, Router, RouterModule} from '@angular/router';
 import {combineLatest, Subscription} from 'rxjs';
@@ -96,6 +106,7 @@ export class App implements OnInit, AfterViewInit, OnDestroy {
   // View References
   @ViewChild('draggableArea', { static: false }) draggableAreaRef!: ElementRef<HTMLDivElement>;
   @ViewChild('parentZone', { static: false }) parentZoneRef!: ElementRef<HTMLDivElement>;
+  @ViewChildren('chatMessages', { read: ElementRef }) chatMessageContainers!: QueryList<ElementRef<HTMLDivElement>>;
 
   // Colored Squares
   squares = signal<ColoredSquare[]>([
@@ -266,12 +277,22 @@ export class App implements OnInit, AfterViewInit, OnDestroy {
     this.subscriptions.push(titleSub);
   }
 
+  private scrollToBottom(windowId: number): void {
+    setTimeout(() => {
+      const index = this.chatWindows().findIndex(w => w.id === windowId);
+      if (index >= 0 && this.chatMessageContainers?.toArray()[index]) {
+        const container = this.chatMessageContainers.toArray()[index].nativeElement;
+        container.scrollTop = container.scrollHeight;
+      }
+    });
+  }
+
   // ✅ ADDED: Initialize Shared Worker
   private initializeWorker(): void {
     this.pubSubHandle = this.workerProxyService.createWorker('pubsub-worker', 'shared', {
-      'url': 'ws://localhost:8005/connection/websocket?format=json'
+      'url': 'ws://192.168.1.150:8005/connection/websocket?format=json'
     });
-
+    //http://192.168.1.150:8888/#/dashboard
     void this.workerProxyService.invoke<rpcSubscribeParams, void>(this.pubSubHandle, rpcSubscribeMethod, {
       centrifugoChannel: 'chat',
       centrifugoToken: '',
@@ -355,6 +376,8 @@ export class App implements OnInit, AfterViewInit, OnDestroy {
             // Increment unread count if window is minimized or not focused
             const unreadCount = window.isMinimized ? window.unreadCount + 1 : 0;
 
+            setTimeout(() => this.scrollToBottom(windowId));
+
             return {
               ...window,
               messages: updatedMessages.slice(-50), // Keep last 50 messages
@@ -418,11 +441,14 @@ export class App implements OnInit, AfterViewInit, OnDestroy {
     }, 'add', { upstreamChannel: 'chat' });
 
     // 3. Clear input
-    this.chatWindows.update(windows =>
-      windows.map(w =>
-        w.id === windowId ? { ...w, newMessage: '' } : w
-      )
-    );
+    this.chatWindows.update((windows) => {
+      const updatedWindows = windows.map(w =>
+        w.id === windowId ? {...w, newMessage: ''} : w
+      );
+
+      setTimeout(() => this.scrollToBottom(windowId));
+      return updatedWindows; // Added return statement
+    });
 
     // 4. Add to logs
     this.addChatLog(`You sent: ${messageText}`, windowId);

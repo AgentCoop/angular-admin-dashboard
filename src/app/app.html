@@ -44,7 +44,7 @@
 
               <!-- Chat Messages (hidden when minimized) -->
               @if (!window.isMinimized) {
-                <div class="chat-messages">
+                <div #chatMessages class="chat-messages">
                   @for (message of window.messages; track message.id) {
                     <div
                       class="chat-message"
