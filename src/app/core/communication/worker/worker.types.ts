@@ -3,18 +3,12 @@
 export type AnyWorker = Worker | SharedWorker;
 export type WorkerType = 'dedicated' | 'shared';
 export type ServiceHandle = string;
-
-export interface ExtendedMessagePort extends MessagePort {
-  tabId: string;
-  lastHeartbeat?: number;
-  lastActive: number;
-  isActive?: boolean;
-}
+export type Port = Worker | MessagePort;
 
 export interface PortDescriptor {
   tabId?: string;
   lastActive: number;
-  port: MessagePort | Worker;
+  port: Port;
 }
 
 export interface InvokeOptions {
@@ -153,6 +147,8 @@ export interface MessageMetadata {
   direction: WorkerMessageDirection;
   timestamp: number;
   tabId?: string;
+  clientUuid?: string;
+  workerUuid?: string;
   upstreamChannel?: string;
 }
 

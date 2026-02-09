@@ -5,8 +5,6 @@ import {mergeWith, share, filter} from 'rxjs/operators';
 import {
   ServiceHandle,
   WorkerType,
-  AnyWorker,
-  ExtendedMessagePort,
   Message,
   MessageFactory,
   BaseMessageTypes,

@@ -1,11 +1,8 @@
 // shared-worker-base.ts
 import { AbstractWorker } from './abstract-worker';
 import {
-  BaseMessageTypes,
   Message,
-  MessageFactory,
   BaseWorkerState,
-  ExtendedMessagePort,
   SharedWorkerMessageTypes
 } from './worker.types';
 import { v4 as uuid } from 'uuid';
@@ -31,7 +28,7 @@ export abstract class AbstractSharedWorker<C extends any, S extends BaseWorkerSt
   }
 
   protected handleConnection(event: MessageEvent): void {
-    const port = event.ports[0] as ExtendedMessagePort;
+    const port = event.ports[0];
     const connectionId = uuid();
 
     // Store port with connection ID initially

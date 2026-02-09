@@ -1,11 +1,15 @@
+import {v4 as uuid} from 'uuid';
+import { Base64 } from 'js-base64';
 import {
   BaseMessageTypes,
   Message,
   MessageFactory,
-  BaseWorkerState, PortDescriptor,
-  RpcMethodHandler, RpcMethodDescriptor
+  BaseWorkerState,
+  PortDescriptor,
+  Port,
+  RpcMethodHandler,
+  RpcMethodDescriptor,
 } from './worker.types';
-import { Base64 } from 'js-base64';
 
 /**
  * Abstract base class for all worker types (SharedWorker and DedicatedWorker).
@@ -27,6 +31,8 @@ export abstract class AbstractWorker<C extends any, S extends BaseWorkerState = 
    */
   protected ports: Map<string, PortDescriptor> = new Map();
 
+  protected workerUuid: string;
+
   /**
    * Provides read-only access to the worker's current state.
    */
@@ -47,6 +53,7 @@ export abstract class AbstractWorker<C extends any, S extends BaseWorkerState = 
    */
   protected constructor() {
     this._state = this.getInitialState();
+    this.workerUuid = uuid();
 
     // Initialize worker configuration from URL parameters
     const { config } = this.decodeUrlParams();
@@ -59,7 +66,7 @@ export abstract class AbstractWorker<C extends any, S extends BaseWorkerState = 
    */
   protected abstract getInitialState(): S;
 
-  protected handleMessage(m: Message, sourcePort: Worker | MessagePort, connectionId: string): void {
+  protected handleMessage(m: Message, sourcePort: Port, connectionId: string): void {
     switch (m.type) {
       case BaseMessageTypes.RPC_REQUEST:
         void this.handleRpcRequest(
@@ -375,7 +382,7 @@ export abstract class AbstractWorker<C extends any, S extends BaseWorkerState = 
     this.ports.forEach(d => this.targetMessage(d.port, m));
   }
 
-  protected targetMessage(port: Worker | MessagePort, m: Message): void {
+  protected targetMessage(port: Port, m: Message): void {
     try {
       port.postMessage(m);
     } catch (error) {

@@ -3,12 +3,12 @@
 /// <reference lib="webworker" />
 
 import {AbstractSharedWorker} from '../abstract-shared-worker';
-import {CentrifugeService, SubscriptionInfo} from '../../transport/centrifuge';
+import {CentrifugeService} from '../../transport/centrifuge';
+import {v7 as uuid} from 'uuid';
 import {
-  ExtendedMessagePort,
   Message,
   MessageFactory,
-  RpcMethodHandler,
+  RpcMethodHandler, SharedWorkerMessageType,
   SharedWorkerMessageTypes
 } from '../worker.types';
 import {PubSubState, rpcSubscribeMethod, rpcSubscribeParams} from './pubsub.types';
@@ -59,7 +59,7 @@ export class PubSubSharedWorker extends AbstractSharedWorker<Config, PubSubState
    * RPC: subscribe to a pub/sub channel.
    */
   private rpcSubscribe: RpcMethodHandler<rpcSubscribeParams, void>
-    = async ({ topic, centrifugoChannel, centrifugoToken }, { connectionId, signal }) => {
+    = async ({ centrifugoChannel, centrifugoToken }, { connectionId, signal }) => {
 
       if (!this.centrifugeService) {
         throw new Error('Centrifuge not initialized');
@@ -71,13 +71,14 @@ export class PubSubSharedWorker extends AbstractSharedWorker<Config, PubSubState
 
       const subscription = this.centrifugeService.createSubscription(centrifugoChannel, centrifugoToken);
 
-      // Todo: fan-out to interested tabs only
       subscription.on('publication', (ctx: any) => {
-        const data = ctx.data;
+        const m =  ctx.data as Message<typeof SharedWorkerMessageTypes.TAB_SYNC_DATA>;
+        const { metadata } = m;
+        if (metadata.workerUuid === this.workerUuid) { // our own message, discard
+          return;
+        }
 
-        const tabSyncDataMessage = MessageFactory.create(SharedWorkerMessageTypes.TAB_SYNC_DATA, data);
-
-        this.sendMessage(tabSyncDataMessage);
+        this.sendMessage(m);
       });
 
       subscription.subscribe();
@@ -93,8 +94,24 @@ export class PubSubSharedWorker extends AbstractSharedWorker<Config, PubSubState
     };
   }
 
-  protected override handleMessage(data: Message, sourcePort: ExtendedMessagePort, connectionId: string): void {
+  protected override handleMessage(data: Message, sourcePort: Worker | MessagePort, connectionId: string): void {
     super.handleMessage(data, sourcePort, connectionId);
+  }
+
+  protected upstreamPrepareMessage(m: Message<typeof SharedWorkerMessageTypes.TAB_SYNC_DATA>): Message {
+    const { metadata, ...restMessage } = m;
+    const { tabId, ...restMetadata } = metadata; // Extract and discard tabId
+
+    const upstreamMessage: Message = {
+      ...restMessage,
+      metadata: {
+        ...restMetadata,
+        clientUuid: uuid(),
+        workerUuid: this.workerUuid,
+      }
+    };
+
+    return upstreamMessage;
   }
 
   protected override onTabSyncData(m: Message<typeof SharedWorkerMessageTypes.TAB_SYNC_DATA>) {
@@ -109,8 +126,9 @@ export class PubSubSharedWorker extends AbstractSharedWorker<Config, PubSubState
       return;
     }
 
-    void subInfo.subscription.publish(m.payload).catch((e) => {
-      console.error('Failed to upstream message');
+    const upstreamMessage = this.upstreamPrepareMessage(m);
+    void subInfo.subscription.publish(upstreamMessage).catch((e) => {
+      console.error('Failed to upstream message:', m);
     });
   }
 
@@ -142,5 +160,3 @@ const pubSubWorker = new PubSubSharedWorker();
 if (typeof self !== 'undefined') {
   (self as any).__pubSubWorker = pubSubWorker;
 }
-
-export default pubSubWorker;
