@@ -7,19 +7,17 @@ import {CentrifugeService} from '../../transport/centrifuge';
 import {v7 as uuid} from 'uuid';
 import {
   Message,
-  MessageFactory,
-  RpcMethodHandler, SharedWorkerMessageType,
+  RpcMethodHandler,
   SharedWorkerMessageTypes
 } from '../worker.types';
-import {PubSubState, rpcSubscribeMethod, rpcSubscribeParams} from './pubsub.types';
+import {
+  PubSubState,
+  PubSubConfig,
+  rpcSubscribeMethodName,
+  rpcSubscribeParams
+} from './pubsub.types';
 
-export interface Config {
-  url: string;
-  token?: string;
-  getToken?: (ctx: any) => Promise<string>
-}
-
-export class PubSubSharedWorker extends AbstractSharedWorker<Config, PubSubState> {
+export class PubSubSharedWorker extends AbstractSharedWorker<PubSubConfig, PubSubState> {
   private centrifugeService: CentrifugeService | null = null;
   private channelSubscriptions: Map<string, any> = new Map(); // Centrifuge subscriptions by channel
 
@@ -28,7 +26,7 @@ export class PubSubSharedWorker extends AbstractSharedWorker<Config, PubSubState
 
     this.initializeCentrifuge();
 
-    this.registerRpcMethod<rpcSubscribeParams, void>(rpcSubscribeMethod, this.rpcSubscribe.bind(this));
+    this.registerRpcMethod<rpcSubscribeParams, void>(rpcSubscribeMethodName, this.rpcSubscribe.bind(this));
   }
 
   // Initialize Centrifuge connection
@@ -100,7 +98,7 @@ export class PubSubSharedWorker extends AbstractSharedWorker<Config, PubSubState
 
   protected upstreamPrepareMessage(m: Message<typeof SharedWorkerMessageTypes.TAB_SYNC_DATA>): Message {
     const { metadata, ...restMessage } = m;
-    const { tabId, ...restMetadata } = metadata; // Extract and discard tabId
+    const { tabId, broadcast, ...restMetadata } = metadata; // Extract and discard local metadata
 
     const upstreamMessage: Message = {
       ...restMessage,

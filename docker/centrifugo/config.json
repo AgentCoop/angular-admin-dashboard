@@ -16,7 +16,34 @@
       "allow_history_for_anonymous": true,
       "allow_history_for_subscriber": true
     },
-    "namespaces": []
+    "namespaces": [
+      {
+        "name": "event_bus",
+        "presence": true,
+        "history_size": 100,
+        "history_ttl": "600s",
+        "force_recovery": true,
+        "allow_subscribe_for_anonymous": true,
+        "allow_subscribe_for_client": true,
+        "allow_presence_for_anonymous": true,
+        "allow_presence_for_subscriber": true,
+        "allow_history_for_anonymous": true,
+        "allow_history_for_subscriber": true
+      },
+      {
+        "name": "command_bus",
+        "presence": false,
+        "history_size": 0,
+        "history_ttl": "0s",
+        "force_recovery": false,
+        "allow_subscribe_for_anonymous": true,
+        "allow_subscribe_for_client": true,
+        "allow_presence_for_anonymous": false,
+        "allow_presence_for_subscriber": false,
+        "allow_history_for_anonymous": false,
+        "allow_history_for_subscriber": false
+      }
+    ]
   },
   "usage_stats": {
     "disabled": true

@@ -30,7 +30,20 @@
                   <span class="unread-badge" *ngIf="window.unreadCount > 0">
             {{ window.unreadCount }}
           </span>
+
+                  <!-- Typing indicator in header -->
+                  <div class="typing-indicator" *ngIf="isWindowTyping(window.id)">
+      <span class="typing-dots">
+        <span class="dot"></span>
+        <span class="dot"></span>
+        <span class="dot"></span>
+      </span>
+                    {{ getTypingDisplayText(window.id) }}
+                  </div>
+
                 </div>
+
+
 
                 <div class="chat-actions">
                   <button class="chat-btn minimize-btn" (click)="toggleChatWindow(window.id)">
@@ -75,11 +88,26 @@
                   }
                 </div>
 
+                <!-- Typing indicator at the bottom -->
+                <div class="typing-indicator-row" *ngIf="isWindowTyping(window.id)">
+                  <div class="typing-indicator-bubble">
+                    <div class="typing-dots">
+                      <span class="dot"></span>
+                      <span class="dot"></span>
+                      <span class="dot"></span>
+                    </div>
+                    <span class="typing-text">
+          {{ getTypingDisplayText(window.id) }}
+        </span>
+                  </div>
+                </div>
+
                 <!-- Chat Input -->
                 <div class="chat-input-container">
                   <input
                     type="text"
                     class="chat-input"
+                    (input)="onChatInputTyping(window.id, $event)"
                     [(ngModel)]="window.newMessage"
                     placeholder="Type your message..."
                     (keyup.enter)="sendMessage(window.id)"

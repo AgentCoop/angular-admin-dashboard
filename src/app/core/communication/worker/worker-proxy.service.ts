@@ -257,7 +257,7 @@ export class WorkerProxyService implements OnDestroy {
   /*
     * Create and register a shared worker by name
   */
-  createSharedWorker(name: string, config?: any): ServiceHandle {
+  createSharedWorker<T extends any>(name: string, config?: T): ServiceHandle {
     const handle = uuid();
 
     // Build worker URL with config encoded in base64

@@ -17,6 +17,11 @@ import {FormsModule} from '@angular/forms';
 import {StateService} from './core/services/state.service';
 import {AuthService} from './core/services/auth.service';
 import {ThemeService} from './core/services/theme.service';
+
+import { ChatService } from './features/chat/chat.service';
+import { ChatUserSummary, ChatUser } from './features/chat/chat.types';
+import {v4 as uuid} from 'uuid';
+
 import {
   Message,
   BaseMessageTypes,
@@ -26,7 +31,7 @@ import {
 } from '@core/communication/worker'; // ✅ ADDED
 import {AllMessageTypes} from '@core/communication/worker'; // ✅ ADDED
 import {DraggableDirective, DragPosition} from '@core/drag-drop';
-import {rpcSubscribeMethod, rpcSubscribeParams} from '@core/communication/worker/pubsub';
+import {rpcSubscribeMethodName, rpcSubscribeParams} from '@core/communication/worker/pubsub';
 
 interface ColoredSquare {
   id: number;
@@ -103,6 +108,9 @@ export class App implements OnInit, AfterViewInit, OnDestroy {
   private workerProxyService = inject(WorkerProxyService);
   private pubSubHandle: ServiceHandle | undefined;
 
+  // ✅ ADDED: Chat Service
+  private chatService = inject(ChatService);
+
   // View References
   @ViewChild('draggableArea', { static: false }) draggableAreaRef!: ElementRef<HTMLDivElement>;
   @ViewChild('parentZone', { static: false }) parentZoneRef!: ElementRef<HTMLDivElement>;
@@ -163,39 +171,18 @@ export class App implements OnInit, AfterViewInit, OnDestroy {
   connectedTabs = signal(1);
   currentTabId = signal('');
 
-  // Reactive properties
-  sidebarCollapsed$ = this.themeService.sidebarCollapsed$;
 
-  // Dropzone State
-  showDropzones = signal(true);
-  snapToDropzones = false;
+  // ✅ ADDED: Typing state for each chat window
+  typingUsersByWindow = signal<Map<number, ChatUserSummary[]>>(new Map());
+  currentUserSummary = signal<ChatUserSummary | null>(null);
 
-  // Dropped Items
-  droppedItems = {
-    priority: [] as DropzoneItem[],
-    review: [] as DropzoneItem[],
-    archive: [] as DropzoneItem[],
-    trash: [] as DropzoneItem[]
-  };
-
-  // Last Drop Times
-  lastDropTime = {
-    priority: new Date(),
-    review: new Date(),
-    archive: new Date(),
-    trash: new Date()
-  };
-
-  // Dropzone Logs
-  dropzoneLogs = signal<DropzoneLog[]>([]);
+  // ✅ ADDED: Typing input debouncing per window
+  private typingInputTimeouts = new Map<number, ReturnType<typeof setTimeout>>();
+  private typingCleanupTimeouts = new Map<number, ReturnType<typeof setTimeout>>();
 
   // ✅ ADDED: Chat Logs
   chatLogs = signal<{timestamp: Date; message: string; windowId: number}[]>([]);
 
-  // Dynamic Zones
-  dynamicZones = signal<DynamicZone[]>([]);
-  newZoneName = '';
-  newZoneType: 'default' | 'priority' | 'review' | 'archive' = 'default';
 
   // Nested Zones
   childZones = {
@@ -216,12 +203,6 @@ export class App implements OnInit, AfterViewInit, OnDestroy {
       const isBlankLayout = blankLayoutRoutes.some(route => url.includes(route));
       return isBlankLayout ? 'blank' : 'dashboard';
     })
-  );
-
-  showHeader$ = combineLatest([this.layoutType$, this.state.isAuthenticated$]).pipe(
-    map(([layoutType, isAuthenticated]) =>
-      layoutType === 'dashboard' && isAuthenticated
-    )
   );
 
   pageTitle$ = combineLatest([
@@ -274,6 +255,15 @@ export class App implements OnInit, AfterViewInit, OnDestroy {
     this.addSystemMessage(2, 'Team Discussion channel created.');
     this.addSystemMessage(3, 'Support Channel - ask questions here.');
 
+
+    // ✅ ADDED: Subscribe to chat service typing events
+    this.subscribeToTypingEvents();
+
+    // ✅ ADDED: Get current user summary for typing events
+    const user = this.initializeCurrentUser() as ChatUser;
+
+    this.chatService.initializePubSub(user, { connection: '', eventBus: '', commandBus: '' });
+
     this.subscriptions.push(titleSub);
   }
 
@@ -293,7 +283,7 @@ export class App implements OnInit, AfterViewInit, OnDestroy {
       'url': 'ws://192.168.1.150:8005/connection/websocket?format=json'
     });
     //http://192.168.1.150:8888/#/dashboard
-    void this.workerProxyService.invoke<rpcSubscribeParams, void>(this.pubSubHandle, rpcSubscribeMethod, {
+    void this.workerProxyService.invoke<rpcSubscribeParams, void>(this.pubSubHandle, rpcSubscribeMethodName, {
       centrifugoChannel: 'chat',
       centrifugoToken: '',
       topic: ChatTopic
@@ -418,41 +408,6 @@ export class App implements OnInit, AfterViewInit, OnDestroy {
   // =====================
   // ✅ CHAT WINDOW METHODS
   // =====================
-
-// Send message from a chat window
-  sendMessage(windowId: number): void {
-    const window = this.chatWindows().find(w => w.id === windowId);
-    if (!window || !window.newMessage.trim()) return;
-
-    const messageText = window.newMessage;
-    const tabId = this.currentTabId();
-    const timestamp = Date.now();
-
-    // 1. FIRST: Add message to your own UI immediately
-    this.addOwnMessageToChat(windowId, messageText, tabId, timestamp);
-
-    // 2. THEN: Broadcast to other tabs
-    this.workerProxyService.syncTabData(this.pubSubHandle!,  ChatTopic, {
-      windowId,
-      text: messageText,
-      sender: tabId,
-      tabId: tabId,
-      timestamp: timestamp
-    }, 'add', { upstreamChannel: 'chat' });
-
-    // 3. Clear input
-    this.chatWindows.update((windows) => {
-      const updatedWindows = windows.map(w =>
-        w.id === windowId ? {...w, newMessage: ''} : w
-      );
-
-      setTimeout(() => this.scrollToBottom(windowId));
-      return updatedWindows; // Added return statement
-    });
-
-    // 4. Add to logs
-    this.addChatLog(`You sent: ${messageText}`, windowId);
-  }
 
 // Helper method to add your own message locally
   private addOwnMessageToChat(windowId: number, text: string, tabId: string, timestamp: number): void {
@@ -643,6 +598,220 @@ export class App implements OnInit, AfterViewInit, OnDestroy {
     } else {
       this.addSystemMessage(1, 'Worker not connected. Cannot send cross-tab message.');
     }
+  }
+
+  // ✅ ADDED: Subscribe to typing events from ChatService
+  private subscribeToTypingEvents(): void {
+    // Listen for typing started events
+    const typingStartedSub = this.chatService.events.typingStarted$.subscribe(
+      ({ roomId, participant }) => {
+        // Convert roomId to windowId (you might need to map these)
+        const windowId = this.getWindowIdFromRoomId(roomId);
+        if (windowId) {
+          this.addTypingUser(windowId, participant);
+        }
+      }
+    );
+
+    // Listen for typing finished events
+    const typingFinishedSub = this.chatService.events.typingFinished$.subscribe(
+      ({ roomId, participant }) => {
+        const windowId = this.getWindowIdFromRoomId(roomId);
+        if (windowId) {
+          this.removeTypingUser(windowId, participant);
+        }
+      }
+    );
+
+    // Subscribe to chat service's typing users observable
+    const typingUsersSub = this.chatService.typingUsers$.subscribe(typingUsersMap => {
+      // Update typing indicators for all windows
+      this.updateAllTypingIndicators(typingUsersMap);
+    });
+
+    this.subscriptions.push(typingStartedSub, typingFinishedSub, typingUsersSub);
+  }
+
+  // ✅ ADDED: Initialize current user summary
+  private initializeCurrentUser(): ChatUserSummary {
+    const randomId = uuid();
+
+    // Generate a random display name, e.g., "User_1234"
+    const randomSuffix = Math.floor(Math.random() * 9000 + 1000); // 1000-9999
+    const randomName = `User_${randomSuffix}`;
+
+    // Optional: random avatar URL placeholder
+    const defaultAvatar = `https://api.dicebear.com/6.x/bottts/svg?seed=${randomId}`;
+
+    const user = {
+      id: randomId,
+      name: randomName,
+      avatar: defaultAvatar,
+    };
+
+    this.currentUserSummary.set(user);
+
+    return user;
+  }
+
+  // ✅ ADDED: Handle typing input in chat windows
+  onChatInputTyping(windowId: number, event: Event): void {
+    if (!this.currentUserSummary()) return;
+
+    const window = this.chatWindows().find(w => w.id === windowId);
+    if (!window) return;
+
+    // Get roomId from windowId (you need to implement this mapping)
+    const roomId = this.getRoomIdFromWindowId(windowId);
+    if (!roomId) return;
+
+    // Send typing start event
+    this.chatService.typingStart(roomId);
+  }
+
+  // ✅ ADDED: Send message with typing cleanup
+  sendMessage(windowId: number): void {
+    const window = this.chatWindows().find(w => w.id === windowId);
+    if (!window || !window.newMessage.trim()) return;
+
+    // Clear typing indicators
+    this.clearTypingIndicators(windowId);
+
+    // Get roomId for typing cleanup
+    const roomId = this.getRoomIdFromWindowId(windowId);
+    if (roomId && this.currentUserSummary()) {
+      this.chatService.typingEnd(roomId);
+    }
+
+    // ... existing send message logic
+    const messageText = window.newMessage;
+    const tabId = this.currentTabId();
+    const timestamp = Date.now();
+
+    // 1. FIRST: Add message to your own UI immediately
+    this.addOwnMessageToChat(windowId, messageText, tabId, timestamp);
+
+    // 2. THEN: Broadcast to other tabs
+    this.workerProxyService.syncTabData(this.pubSubHandle!,  ChatTopic, {
+      windowId,
+      text: messageText,
+      sender: tabId,
+      tabId: tabId,
+      timestamp: timestamp
+    }, 'add', { upstreamChannel: 'chat' });
+
+    // 3. Clear input
+    this.chatWindows.update((windows) => {
+      const updatedWindows = windows.map(w =>
+        w.id === windowId ? {...w, newMessage: ''} : w
+      );
+
+      setTimeout(() => this.scrollToBottom(windowId));
+      return updatedWindows;
+    });
+
+    // 4. Add to logs
+    this.addChatLog(`You sent: ${messageText}`, windowId);
+  }
+
+  // ✅ ADDED: Clear typing indicators for a window
+  private clearTypingIndicators(windowId: number): void {
+    // Clear local typing state
+    this.typingUsersByWindow.update(current => {
+      const updated = new Map(current);
+      updated.delete(windowId);
+      return updated;
+    });
+  }
+
+  // ✅ ADDED: Add typing user to window
+  private addTypingUser(windowId: number, user: ChatUserSummary): void {
+    this.typingUsersByWindow.update(current => {
+      const updated = new Map(current);
+      const existingUsers = updated.get(windowId) || [];
+
+      // Check if user is already in the list
+      if (!existingUsers.some(u => u.id === user.id)) {
+        updated.set(windowId, [...existingUsers, user]);
+      }
+
+      return updated;
+    });
+  }
+
+  // ✅ ADDED: Remove typing user from window
+  private removeTypingUser(windowId: number, user: ChatUserSummary): void {
+    this.typingUsersByWindow.update(current => {
+      const updated = new Map(current);
+      const existingUsers = updated.get(windowId) || [];
+
+      const filteredUsers = existingUsers.filter(u => u.id !== user.id);
+      if (filteredUsers.length === 0) {
+        updated.delete(windowId);
+      } else {
+        updated.set(windowId, filteredUsers);
+      }
+
+      return updated;
+    });
+  }
+
+  // ✅ ADDED: Update all typing indicators
+  private updateAllTypingIndicators(typingUsersMap: Map<string, { roomId: string, user: ChatUserSummary, timestamp: number }>): void {
+    // Clear current typing indicators
+    this.typingUsersByWindow.set(new Map());
+
+    // Group typing users by window
+    typingUsersMap.forEach(({ roomId, user }) => {
+      const windowId = this.getWindowIdFromRoomId(roomId);
+      if (windowId) {
+        this.addTypingUser(windowId, user);
+      }
+    });
+  }
+
+  // ✅ ADDED: Get typing users for a specific window
+  getTypingUsersForWindow(windowId: number): ChatUserSummary[] {
+    return this.typingUsersByWindow().get(windowId) || [];
+  }
+
+  // ✅ ADDED: Get formatted typing text for display
+  getTypingDisplayText(windowId: number): string {
+    const users = this.getTypingUsersForWindow(windowId);
+
+    if (users.length === 0) return '';
+    if (users.length === 1) return `${users[0].name} is typing...`;
+    if (users.length === 2) return `${users[0].name} and ${users[1].name} are typing...`;
+
+    return `${users[0].name} and ${users.length - 1} others are typing...`;
+  }
+
+  // ✅ ADDED: Check if window has typing activity
+  isWindowTyping(windowId: number): boolean {
+    return this.getTypingUsersForWindow(windowId).length > 0;
+  }
+
+  // ✅ ADDED: Map windowId to roomId (you need to implement your mapping logic)
+  private getRoomIdFromWindowId(windowId: number): string | null {
+    // This is a simple example - you might have a more complex mapping
+    // For example, store roomId in the ChatWindow interface
+    const window = this.chatWindows().find(w => w.id === windowId);
+    if (window) {
+      // You might want to add roomId to ChatWindow interface
+      return `room_${windowId}`;
+    }
+    return null;
+  }
+
+  // ✅ ADDED: Map roomId to windowId
+  private getWindowIdFromRoomId(roomId: string): number | null {
+    // Extract windowId from roomId or use a mapping
+    // For example, if roomId is "room_1", extract 1
+    const match = roomId.match(/room_(\d+)/);
+    if (match) {
+      return parseInt(match[1], 10);
+    }
+    return null;
   }
 
   // =====================

@@ -379,6 +379,10 @@ export abstract class AbstractWorker<C extends any, S extends BaseWorkerState = 
       return;
     }
 
+    if (m.metadata.broadcast !== undefined && !m.metadata.broadcast) {
+      return;
+    }
+
     this.ports.forEach(d => this.targetMessage(d.port, m));
   }
 

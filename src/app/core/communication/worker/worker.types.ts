@@ -17,7 +17,7 @@ export interface InvokeOptions {
 }
 
 export const DEFAULT_INVOKE_OPTIONS: Required<InvokeOptions> = {
-  timeout: 2000,        // Default 2 seconds
+  timeout: 4_000,
   onTimeout: () => {},
 };
 
@@ -150,6 +150,7 @@ export interface MessageMetadata {
   clientUuid?: string;
   workerUuid?: string;
   upstreamChannel?: string;
+  broadcast?: boolean; // enabled by default
 }
 
 export class MessageFactory {
