@@ -1,4 +1,3 @@
-import {RoomNotificationOverride} from './room.model';
 
 export type UserPresence =
   | 'available'      // Actively available (default)
@@ -60,7 +59,6 @@ export interface NotificationPreferences {
     sound: boolean;
     preview: boolean;
   };
-  rooms: Record<string, RoomNotificationOverride>;
 }
 
 export interface PrivacySettings {

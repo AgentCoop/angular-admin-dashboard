@@ -19,6 +19,7 @@ import {
   rpcSubscribeParams
 } from '@core/communication/worker/pubsub';
 import {
+  MessageContent,
   MessageModel,
   MessageReaction,
 } from '../models/message.model';
@@ -31,6 +32,7 @@ import {
 } from '../models/room.model';
 
 export const TopicChatEvents = 'chat-events';
+export const TopicChatOptimisticMessages = 'chat-optimistic-messages';
 export const TopicChatCommands = 'chat-command-bus';
 
 // Event observables interface
@@ -172,7 +174,7 @@ export class ChatService implements OnDestroy {
     return `chat-events:${this.currentUser.id}`;
   }
 
-  private getCommandsChannel(): string {
+  getCommandsChannel(): string {
     if (!this.currentUser?.id) {
       throw new Error('User not authenticated');
     }
@@ -180,7 +182,7 @@ export class ChatService implements OnDestroy {
     return `chat-commands:${this.currentUser.id}`;
   }
 
-  private getRoomTypingEventsChannel(roomId: string): string {
+  getRoomTypingEventsChannel(roomId: string): string {
     return `chat-typings:${roomId}`;
   }
 
@@ -374,7 +376,13 @@ export class ChatService implements OnDestroy {
     this.manualTypingStop$.next(roomId);
   }
 
-  private async subscribeToChannel(topic: string, channel: string, subToken: string): Promise<void> {
+  async sendMessage(roomId: string, content: MessageContent): Promise<void> {
+
+
+    return;
+  }
+
+  async subscribeToChannel(topic: string, channel: string, subToken: string): Promise<void> {
     if (!this.currentUser || !this.pubSubHandle) {
       throw new Error('User must be set before subscribing');
     }
@@ -455,7 +463,7 @@ export class ChatService implements OnDestroy {
     const room = this.rooms.get(roomId);
     if (room) {
       //room.activity.lastMessageAt = new Date();
-      room.activity.lastMessageId = messageId;
+      //room.activity.lastMessageId = messageId;
       this.rooms.set(roomId, room);
       this.roomsSubject.next(new Map(this.rooms));
     }

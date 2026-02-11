@@ -124,6 +124,15 @@ export interface MessageContent {
   call?: CallData;
 }
 
+export interface MessageReplyInfo {
+  messageId: string;
+  userId: string;
+  userName: string;
+  text?: string;
+  attachments?: MessageAttachment[];
+  content?: MessageContent;
+}
+
 export interface MessageModel {
   // Core identifiers
   id: string;
