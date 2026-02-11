@@ -6,7 +6,7 @@ import {AbstractSharedWorker} from '../abstract-shared-worker';
 import {CentrifugeService} from '../../transport/centrifuge';
 import {v7 as uuid} from 'uuid';
 import {
-  Message,
+  Message, MessageFactory,
   RpcMethodHandler,
   SharedWorkerMessageTypes
 } from '../worker.types';
@@ -14,19 +14,29 @@ import {
   PubSubState,
   PubSubConfig,
   rpcSubscribeMethodName,
-  rpcSubscribeParams
+  rpcSubscribeParams,
+  rpcBroadcastServerPublicationsMethodName,
+  rpcBroadcastServerPublicationsParams,
 } from './pubsub.types';
 
 export class PubSubSharedWorker extends AbstractSharedWorker<PubSubConfig, PubSubState> {
   private centrifugeService: CentrifugeService | null = null;
   private channelSubscriptions: Map<string, any> = new Map(); // Centrifuge subscriptions by channel
+  private serverChannelTopicMap: Map<string, string> = new Map();
 
   constructor() {
     super();
 
     this.initializeCentrifuge();
 
-    this.registerRpcMethod<rpcSubscribeParams, void>(rpcSubscribeMethodName, this.rpcSubscribe.bind(this));
+    this.registerRpcMethod<rpcSubscribeParams, void>(
+      rpcSubscribeMethodName,
+      this.rpcSubscribe.bind(this),
+    );
+    this.registerRpcMethod<rpcBroadcastServerPublicationsParams, void>(
+      rpcBroadcastServerPublicationsMethodName,
+      this.rpcBroadcastServerPublications.bind(this),
+    );
   }
 
   // Initialize Centrifuge connection
@@ -85,6 +95,37 @@ export class PubSubSharedWorker extends AbstractSharedWorker<PubSubConfig, PubSu
         `[PubSub] ${connectionId} subscribed to ${centrifugoChannel}`
       );
     };
+
+  /**
+   *
+   */
+  private rpcBroadcastServerPublications: RpcMethodHandler<rpcBroadcastServerPublicationsParams, void>
+    = async ({topic, channel}, { connectionId, signal }) => {
+
+    if (!this.centrifugeService || !this.centrifugeService.connection) {
+      throw new Error('Centrifuge not initialized');
+    }
+
+    this.serverChannelTopicMap.set(channel, topic);
+
+    this.centrifugeService.connection.on('publication', (ctx) => {
+      const { channel, data } = ctx;
+      if (!this.serverChannelTopicMap.has(channel)) {
+        return;
+      }
+
+      const topic = this.serverChannelTopicMap.get(channel)!;
+
+      const m = MessageFactory.create(SharedWorkerMessageTypes.TAB_SYNC_DATA, {
+        key: topic,
+        value: data,
+        op: 'add',
+      });
+
+      this.sendMessage(m);
+      console.debug('Server publication:', m);
+    });
+  };
 
   protected override getInitialState(): PubSubState {
     return {

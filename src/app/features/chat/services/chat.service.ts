@@ -4,28 +4,39 @@ import {BehaviorSubject, Observable, Subject, Subscription, merge, GroupedObserv
 import {groupBy, debounceTime, map, take, mergeMap, takeUntil, throttleTime} from 'rxjs/operators';
 import { WorkerProxyService } from '@core/communication/worker/worker-proxy.service';
 import {
-  ChatMessage,
-  ChatRoom,
-  ChatUser,
   ChatEvent,
   ChatEventTypes,
-  UserPresence,
-  ChatUserSummary,
   ChatEventPayload,
   createChatEvent,
-} from './chat.types';
+} from '../chat.types';
 import {
   ServiceHandle,
 } from '@core/communication/worker';
-import { PubSubConfig, rpcSubscribeMethodName, rpcSubscribeParams } from '@core/communication/worker/pubsub';
+import {
+  PubSubConfig, rpcBroadcastServerPublicationsMethodName,
+  rpcBroadcastServerPublicationsParams,
+  rpcSubscribeMethodName,
+  rpcSubscribeParams
+} from '@core/communication/worker/pubsub';
+import {
+  MessageModel,
+  MessageReaction,
+} from '../models/message.model';
+import {
+  UserModel,
+  UserModelSummary
+} from '../models/user.model';
+import {
+  RoomModel,
+} from '../models/room.model';
 
-export const TopicEventBus = 'chat-event-bus';
-export const TopicCommandBus = 'chat-command-bus';
+export const TopicChatEvents = 'chat-events';
+export const TopicChatCommands = 'chat-command-bus';
 
 // Event observables interface
 interface ChatEventObservables {
-  typingStarted$: Observable<{ roomId: string; participant: ChatUserSummary }>;
-  typingFinished$: Observable<{ roomId: string; participant: ChatUserSummary }>;
+  typingStarted$: Observable<{ roomId: string; participant: UserModelSummary }>;
+  typingFinished$: Observable<{ roomId: string; participant: UserModelSummary }>;
   messageSent$: Observable<{ roomId: string; messageId: string; text: string }>;
   messageUpdated$: Observable<{ roomId: string; messageId: string; text: string }>;
   messageDeleted$: Observable<{ roomId: string; messageId: string }>;
@@ -43,10 +54,10 @@ interface ChatEventObservables {
 })
 export class ChatService implements OnDestroy {
   // Core state
-  private messages = new Map<string, ChatMessage[]>(); // roomId -> messages
-  private rooms = new Map<string, ChatRoom>();
-  private users = new Map<string, ChatUser>(); // Online users cache
-  private currentUser: ChatUser | null = null;
+  private messages = new Map<string, MessageModel[]>(); // roomId -> messages
+  private rooms = new Map<string, RoomModel>();
+  private users = new Map<string, UserModel>(); // Online users cache
+  private currentUser: UserModel | null = null;
   private currentRoomId: string | null = null;
 
   // Worker handles
@@ -61,14 +72,14 @@ export class ChatService implements OnDestroy {
   private manualTypingStop$ = new Subject<string>(); // roomId
 
   // Subjects for reactive state
-  private messagesSubject = new BehaviorSubject<Map<string, ChatMessage[]>>(this.messages);
-  private roomsSubject = new BehaviorSubject<Map<string, ChatRoom>>(this.rooms);
-  private usersSubject = new BehaviorSubject<Map<string, ChatUser>>(this.users);
-  private currentRoomSubject = new BehaviorSubject<ChatRoom | null>(null);
+  private messagesSubject = new BehaviorSubject<Map<string, MessageModel[]>>(this.messages);
+  private roomsSubject = new BehaviorSubject<Map<string, RoomModel>>(this.rooms);
+  private usersSubject = new BehaviorSubject<Map<string, UserModel>>(this.users);
+  private currentRoomSubject = new BehaviorSubject<RoomModel | null>(null);
 
   // Event subjects
-  private typingUsersSubject = new BehaviorSubject<Map<string, { roomId: string, user: ChatUserSummary, timestamp: number }>>(new Map());
-  private presenceUpdatesSubject = new Subject<{ userId: string, presence: UserPresence }>();
+  private typingUsersSubject = new BehaviorSubject<Map<string, { roomId: string, user: UserModelSummary, timestamp: number }>>(new Map());
+  //private presenceUpdatesSubject = new Subject<{ userId: string, presence: UserPresence }>();
   private connectionStatusSubject = new BehaviorSubject<'disconnected' | 'connecting' | 'connected'>('disconnected');
 
   // Event bus subjects
@@ -92,14 +103,14 @@ export class ChatService implements OnDestroy {
   private syncSubscription?: Subscription;
   private userEventsSubscription?: Subscription;
   private roomEventsSubscription?: Subscription;
-  private eventBusSubscription?: Subscription;
+  private eventsSubscription?: Subscription;
   private destroy$ = new Subject<void>();
 
   // Public observables
-  messages$: Observable<Map<string, ChatMessage[]>>;
-  rooms$: Observable<Map<string, ChatRoom>>;
-  currentRoom$: Observable<ChatRoom | null>;
-  presenceUpdates$ = this.presenceUpdatesSubject.asObservable();
+  messages$: Observable<Map<string, MessageModel[]>>;
+  rooms$: Observable<Map<string, RoomModel>>;
+  currentRoom$: Observable<RoomModel | null>;
+  //presenceUpdates$ = this.presenceUpdatesSubject.asObservable();
   connectionStatus$ = this.connectionStatusSubject.asObservable();
 
   // Event observables
@@ -123,7 +134,7 @@ export class ChatService implements OnDestroy {
   };
 
   // Store optimistic messages temporarily
-  private optimisticMessages = new Map<string, ChatMessage>();
+  private optimisticMessages = new Map<string, MessageModel>();
   private pendingRequests = new Map<string, { resolve: Function, reject: Function }>();
 
   // Configuration
@@ -147,18 +158,47 @@ export class ChatService implements OnDestroy {
     this.cleanup();
   }
 
+  /**
+   * Generates the Centrifugo channel name for chat events
+   *
+   * @returns Formatted channel string for chat events subscription
+   * @throws {Error} If currentUser is not initialized
+   */
+  private getGlobalEventsChannel(): string {
+    if (!this.currentUser?.id) {
+      throw new Error('Cannot generate chat events channel: User not authenticated');
+    }
+
+    return `chat-events:${this.currentUser.id}`;
+  }
+
+  private getCommandsChannel(): string {
+    if (!this.currentUser?.id) {
+      throw new Error('User not authenticated');
+    }
+
+    return `chat-commands:${this.currentUser.id}`;
+  }
+
+  private getRoomTypingEventsChannel(roomId: string): string {
+    return `chat-typings:${roomId}`;
+  }
+
   // ========== PUBLIC API ==========
 
   /**
    * Initialize PubSub connection with auth token (called after login)
    */
-  async initializePubSub(user: ChatUser, tokens: { connection: string, eventBus: string, commandBus: string }): Promise<void> {
+  async initializePubSub(
+    user: UserModel,
+    tokens: { connectionToken: string, eventsToken: string, commandToken: string },
+  ): Promise<void> {
     if (this.isPubSubInitialized) {
       console.warn('PubSub already initialized');
       return;
     }
 
-    const { connection, eventBus, commandBus } = tokens;
+    const { connectionToken, eventsToken, commandToken } = tokens;
 
     this.connectionStatusSubject.next('connecting');
 
@@ -168,15 +208,25 @@ export class ChatService implements OnDestroy {
       // Create PubSub shared worker with the connection token
       this.pubSubHandle = this.workerProxy.createSharedWorker<PubSubConfig>('pubsub-worker', {
         url: this.centrifugoUrl,
-        token: connection,
+        token: connectionToken,
       });
       this.isPubSubInitialized = true;
 
-      // Subscribe to event bus for chat events
-      await this.subscribeToEventBus(eventBus);
+      // Receive all server events
+      await this.workerProxy.invoke<rpcBroadcastServerPublicationsParams, void>(
+        this.pubSubHandle,
+        rpcBroadcastServerPublicationsMethodName,
+        {
+          topic: TopicChatEvents,
+          channel: this.getGlobalEventsChannel(),
+        }
+      );
+
+      await this.subscribeToChannel(TopicChatEvents, this.getRoomTypingEventsChannel('room_1'), eventsToken);
+      await this.subscribeToChannel(TopicChatCommands, this.getCommandsChannel(), commandToken);
 
       // Initialize event bus listener
-      this.initializeEventBusListener();
+      this.initializeEventsSubscription();
 
       // Typing stream
       this.setupLocalTypingStream();
@@ -192,49 +242,24 @@ export class ChatService implements OnDestroy {
   }
 
   /**
-   * Subscribe to event bus for receiving chat events
-   */
-  private async subscribeToEventBus(eventBusToken: string): Promise<void> {
-    if (!this.currentUser || !this.pubSubHandle) {
-      throw new Error('User must be set before subscribing to event bus');
-    }
-
-    try {
-      await this.workerProxy.invoke<rpcSubscribeParams, void>(
-        this.pubSubHandle,
-        rpcSubscribeMethodName,
-        {
-          topic: TopicEventBus,
-          centrifugoChannel: `event_bus`,
-          centrifugoToken: eventBusToken,
-        }
-      );
-      console.log('Subscribed to event bus');
-    } catch (error) {
-      console.error('Failed to subscribe to event bus:', error);
-      throw error;
-    }
-  }
-
-  /**
    * Initialize listener for event bus data
    */
-  private initializeEventBusListener(): void {
+  private initializeEventsSubscription(): void {
     // Listen for event bus data from worker using the new subscribe syntax
-    this.eventBusSubscription = this.workerProxy.onTabSyncData(TopicEventBus).subscribe({
+    this.eventsSubscription = this.workerProxy.onTabSyncData<ChatEvent>(TopicChatEvents).subscribe({
       next: ({ value, metadata }) => {
         try {
-          const event = value as ChatEvent;
+          const event = value;
           this.handleEvent(event);
         } catch (error) {
-          console.error('Error processing event:', error);
+          console.error('Error processing chat event:', error);
         }
       },
       error: (error) => {
-        console.error('Event bus listener error:', error);
+        console.error('Chat events error:', error);
       },
       complete: () => {
-        console.log('Event bus listener completed');
+        console.log('Chat events processing completed');
       }
     });
   }
@@ -349,6 +374,26 @@ export class ChatService implements OnDestroy {
     this.manualTypingStop$.next(roomId);
   }
 
+  private async subscribeToChannel(topic: string, channel: string, subToken: string): Promise<void> {
+    if (!this.currentUser || !this.pubSubHandle) {
+      throw new Error('User must be set before subscribing');
+    }
+
+    try {
+      await this.workerProxy.invoke<rpcSubscribeParams, void>(
+        this.pubSubHandle,
+        rpcSubscribeMethodName,
+        {
+          topic,
+          centrifugoChannel: channel,
+          centrifugoToken: subToken,
+        }
+      );
+    } catch (error) {
+      throw error;
+    }
+  }
+
   /**
    * Send typing event to server via worker using proper event types
    */
@@ -368,35 +413,16 @@ export class ChatService implements OnDestroy {
       participant: u,
     });
 
-    // Send to server via worker
-    this.sendEventToWorker(event).catch(error => {
-      console.error('Failed to send typing event:', error);
-    });
-  }
-
-  /**
-   * Send event to worker for server transmission
-   */
-  private async sendEventToWorker(event: ChatEvent): Promise<void> {
-    if (!this.pubSubHandle) {
-      throw new Error('PubSub not initialized');
-    }
-
-    try {
-      this.workerProxy.syncTabData(
-        this.pubSubHandle,
-        TopicEventBus,
-        event,
-        'add',
-        {
-          upstreamChannel: `event_bus`,
-          broadcast: false,
-        }
-      );
-    } catch (error) {
-      console.error('Failed to send event to worker:', error);
-      throw error;
-    }
+    this.workerProxy.syncTabData(
+      this.pubSubHandle,
+      TopicChatEvents,
+      event,
+      'add',
+      {
+        upstreamChannel: this.getRoomTypingEventsChannel(roomId),
+        broadcast: false,
+      }
+    );
   }
 
   // ========== EVENT HANDLERS ==========
@@ -428,7 +454,7 @@ export class ChatService implements OnDestroy {
     // Update room's last message
     const room = this.rooms.get(roomId);
     if (room) {
-      room.activity.lastMessageAt = new Date();
+      //room.activity.lastMessageAt = new Date();
       room.activity.lastMessageId = messageId;
       this.rooms.set(roomId, room);
       this.roomsSubject.next(new Map(this.rooms));
@@ -504,13 +530,6 @@ export class ChatService implements OnDestroy {
     const room = this.rooms.get(roomId);
     if (room) {
       // Add to room members if not already present
-      if (!room.memberIds.includes(userId)) {
-        room.memberIds.push(userId);
-        room.memberCount = room.memberIds.length;
-
-        this.rooms.set(roomId, room);
-        this.roomsSubject.next(new Map(this.rooms));
-      }
     }
 
     // Emit to specific observable
@@ -523,14 +542,7 @@ export class ChatService implements OnDestroy {
     // Update room members
     const room = this.rooms.get(roomId);
     if (room) {
-      const memberIndex = room.memberIds.indexOf(userId);
-      if (memberIndex !== -1) {
-        room.memberIds.splice(memberIndex, 1);
-        room.memberCount = room.memberIds.length;
 
-        this.rooms.set(roomId, room);
-        this.roomsSubject.next(new Map(this.rooms));
-      }
     }
 
     // Emit to specific observable
@@ -635,7 +647,7 @@ export class ChatService implements OnDestroy {
 
   // ========== HELPER METHODS ==========
 
-  private addTypingUser(roomId: string, participant: ChatUserSummary): void {
+  private addTypingUser(roomId: string, participant: UserModelSummary): void {
     const typingUsers = new Map(this.typingUsersSubject.value);
     typingUsers.set(participant.id, {
       roomId,
@@ -645,7 +657,7 @@ export class ChatService implements OnDestroy {
     this.typingUsersSubject.next(typingUsers);
   }
 
-  private removeTypingUser(roomId: string, participant: ChatUserSummary): void {
+  private removeTypingUser(roomId: string, participant: UserModelSummary): void {
     const typingUsers = new Map(this.typingUsersSubject.value);
     typingUsers.delete(participant.id);
     this.typingUsersSubject.next(typingUsers);
@@ -665,8 +677,8 @@ export class ChatService implements OnDestroy {
     this.typingUsersSubject.next(new Map());
 
     // Unsubscribe from event bus
-    if (this.eventBusSubscription) {
-      this.eventBusSubscription.unsubscribe();
+    if (this.eventsSubscription) {
+      this.eventsSubscription.unsubscribe();
     }
 
     if (this.pubSubHandle) {
@@ -687,14 +699,14 @@ export class ChatService implements OnDestroy {
   /**
    * Get current user
    */
-  getCurrentUser(): ChatUser | null {
+  getCurrentUser(): UserModel | null {
     return this.currentUser;
   }
 
   /**
    * Get typing users for a room
    */
-  getTypingUsers(roomId: string): ChatUserSummary[] {
+  getTypingUsers(roomId: string): UserModelSummary[] {
     const typingUsers = Array.from(this.typingUsersSubject.value.values())
       .filter(typing => typing.roomId === roomId)
       .map(typing => typing.user);
@@ -704,14 +716,13 @@ export class ChatService implements OnDestroy {
   /**
    * Get current user's typing summary
    */
-  getCurrentUserSummary(): ChatUserSummary | null {
+  getCurrentUserSummary(): UserModelSummary | null {
     if (!this.currentUser) return null;
 
     return {
       id: this.currentUser.id,
       name: this.currentUser.name,
       avatar: this.currentUser.avatar,
-      displayName: this.currentUser.displayName
     };
   }
 
@@ -730,8 +741,8 @@ export class ChatService implements OnDestroy {
       this.workerProxy.terminateWorker(this.chatWorkerHandle);
     }
 
-    if (this.eventBusSubscription) {
-      this.eventBusSubscription.unsubscribe();
+    if (this.eventsSubscription) {
+      this.eventsSubscription.unsubscribe();
     }
 
     // Complete all subjects
@@ -739,7 +750,7 @@ export class ChatService implements OnDestroy {
     this.roomsSubject.complete();
     this.currentRoomSubject.complete();
     this.typingUsersSubject.complete();
-    this.presenceUpdatesSubject.complete();
+    //this.presenceUpdatesSubject.complete();
     this.connectionStatusSubject.complete();
     this.eventBusSubject.complete();
 

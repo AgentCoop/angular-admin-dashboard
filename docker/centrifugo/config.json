@@ -18,7 +18,7 @@
     },
     "namespaces": [
       {
-        "name": "event_bus",
+        "name": "chat-typings",
         "presence": true,
         "history_size": 100,
         "history_ttl": "600s",
@@ -31,7 +31,7 @@
         "allow_history_for_subscriber": true
       },
       {
-        "name": "command_bus",
+        "name": "chat-commands",
         "presence": false,
         "history_size": 0,
         "history_ttl": "0s",

@@ -18,8 +18,7 @@ import {StateService} from './core/services/state.service';
 import {AuthService} from './core/services/auth.service';
 import {ThemeService} from './core/services/theme.service';
 
-import { ChatService } from './features/chat/chat.service';
-import { ChatUserSummary, ChatUser } from './features/chat/chat.types';
+import { ChatService } from '@features/chat/services/chat.service';
 import {v4 as uuid} from 'uuid';
 
 import {
@@ -32,6 +31,10 @@ import {
 import {AllMessageTypes} from '@core/communication/worker'; // ✅ ADDED
 import {DraggableDirective, DragPosition} from '@core/drag-drop';
 import {rpcSubscribeMethodName, rpcSubscribeParams} from '@core/communication/worker/pubsub';
+import {
+  UserModel,
+  UserModelSummary
+} from '@features/chat/models/user.model';
 
 interface ColoredSquare {
   id: number;
@@ -173,8 +176,8 @@ export class App implements OnInit, AfterViewInit, OnDestroy {
 
 
   // ✅ ADDED: Typing state for each chat window
-  typingUsersByWindow = signal<Map<number, ChatUserSummary[]>>(new Map());
-  currentUserSummary = signal<ChatUserSummary | null>(null);
+  typingUsersByWindow = signal<Map<number, UserModelSummary[]>>(new Map());
+  currentUserSummary = signal<UserModelSummary | null>(null);
 
   // ✅ ADDED: Typing input debouncing per window
   private typingInputTimeouts = new Map<number, ReturnType<typeof setTimeout>>();
@@ -260,9 +263,12 @@ export class App implements OnInit, AfterViewInit, OnDestroy {
     this.subscribeToTypingEvents();
 
     // ✅ ADDED: Get current user summary for typing events
-    const user = this.initializeCurrentUser() as ChatUser;
+    const user = this.initializeCurrentUser() as UserModel;
 
-    this.chatService.initializePubSub(user, { connection: '', eventBus: '', commandBus: '' });
+    void this.chatService.initializePubSub(user, { connectionToken: '', eventsToken: '', commandToken: '' })
+      .catch(e => {
+        console.error('Failed to init PubSub', e)
+      });
 
     this.subscriptions.push(titleSub);
   }
@@ -279,17 +285,17 @@ export class App implements OnInit, AfterViewInit, OnDestroy {
 
   // ✅ ADDED: Initialize Shared Worker
   private initializeWorker(): void {
-    this.pubSubHandle = this.workerProxyService.createWorker('pubsub-worker', 'shared', {
-      'url': 'ws://192.168.1.150:8005/connection/websocket?format=json'
-    });
-    //http://192.168.1.150:8888/#/dashboard
-    void this.workerProxyService.invoke<rpcSubscribeParams, void>(this.pubSubHandle, rpcSubscribeMethodName, {
-      centrifugoChannel: 'chat',
-      centrifugoToken: '',
-      topic: ChatTopic
-    }).catch(e => {
-      console.error('Failed to subscribe to', e)
-    });
+    // this.pubSubHandle = this.workerProxyService.createWorker('pubsub-worker', 'shared', {
+    //   'url': 'ws://192.168.1.150:8005/connection/websocket?format=json'
+    // });
+    // //http://192.168.1.150:8888/#/dashboard
+    // void this.workerProxyService.invoke<rpcSubscribeParams, void>(this.pubSubHandle, rpcSubscribeMethodName, {
+    //   centrifugoChannel: 'chat',
+    //   centrifugoToken: '',
+    //   topic: ChatTopic
+    // }).catch(e => {
+    //   console.error('Failed to subscribe to', e)
+    // });
 
     // Monitor connection status
     // const connectionSub = this.workerService.connection$.subscribe(status => {
@@ -633,7 +639,7 @@ export class App implements OnInit, AfterViewInit, OnDestroy {
   }
 
   // ✅ ADDED: Initialize current user summary
-  private initializeCurrentUser(): ChatUserSummary {
+  private initializeCurrentUser(): UserModelSummary {
     const randomId = uuid();
 
     // Generate a random display name, e.g., "User_1234"
@@ -725,7 +731,7 @@ export class App implements OnInit, AfterViewInit, OnDestroy {
   }
 
   // ✅ ADDED: Add typing user to window
-  private addTypingUser(windowId: number, user: ChatUserSummary): void {
+  private addTypingUser(windowId: number, user: UserModelSummary): void {
     this.typingUsersByWindow.update(current => {
       const updated = new Map(current);
       const existingUsers = updated.get(windowId) || [];
@@ -740,7 +746,7 @@ export class App implements OnInit, AfterViewInit, OnDestroy {
   }
 
   // ✅ ADDED: Remove typing user from window
-  private removeTypingUser(windowId: number, user: ChatUserSummary): void {
+  private removeTypingUser(windowId: number, user: UserModelSummary): void {
     this.typingUsersByWindow.update(current => {
       const updated = new Map(current);
       const existingUsers = updated.get(windowId) || [];
@@ -757,7 +763,7 @@ export class App implements OnInit, AfterViewInit, OnDestroy {
   }
 
   // ✅ ADDED: Update all typing indicators
-  private updateAllTypingIndicators(typingUsersMap: Map<string, { roomId: string, user: ChatUserSummary, timestamp: number }>): void {
+  private updateAllTypingIndicators(typingUsersMap: Map<string, { roomId: string, user: UserModelSummary, timestamp: number }>): void {
     // Clear current typing indicators
     this.typingUsersByWindow.set(new Map());
 
@@ -771,7 +777,7 @@ export class App implements OnInit, AfterViewInit, OnDestroy {
   }
 
   // ✅ ADDED: Get typing users for a specific window
-  getTypingUsersForWindow(windowId: number): ChatUserSummary[] {
+  getTypingUsersForWindow(windowId: number): UserModelSummary[] {
     return this.typingUsersByWindow().get(windowId) || [];
   }
 

@@ -7,6 +7,13 @@ export interface rpcSubscribeParams {
 }
 export const rpcSubscribeMethodName = 'subscribe';
 
+export interface rpcBroadcastServerPublicationsParams {
+  topic: string,
+  channel: string,
+}
+export const rpcBroadcastServerPublicationsMethodName = 'broadcastServerPublications';
+
+
 export interface PubSubConfig {
   url: string;
   token?: string;
